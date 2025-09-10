@@ -19,7 +19,7 @@
 - UI Library: Element Plus 2.3.8
 - HTTP Client: Axios 1.11.0
 - Markdown Rendering: markdown-it 14.1.0
-- MinioClient Client: MinIO 8.0.5
+- Minio Client: MinIO 8.0.5
 
 ### Backend Server
 - Framework: Spring Boot 3.5.5
