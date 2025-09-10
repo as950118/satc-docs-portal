@@ -63,6 +63,7 @@
 - 이미지 빌드 및 컨테이너 실행 Command
 ```sh
 docker compose up {service-name} -d  
+
 [옵션]
 {service-name}: 원하는 service만 올리고 싶은 경우  
 -d: Background로 Container를 띄우는 설정
@@ -81,16 +82,18 @@ docker compose up {service-name} -d
 
 - [CMP 문서관리포탈](http://localhost:3000) 접속 확인
 
+<br/>
 
 ***Docker Compose를 활용한 전체 Image Build 및 Container 삭제***  
 
 - 컨테이너 중지 및 이미지 삭제 Command
 ```sh
-  docker compose down {service-name} -v --rmi all
-  [옵션]
-  {service-name}: 원하는 service만 내리고 싶은 경우
-  -v: 해당 Container의 volume도 같이 삭제하고 싶은 경우
-  --rmi all(optional): 관련된 이미지도 전부 지우고 싶은 경우
+docker compose down {service-name} -v --rmi all
+  
+[옵션]
+{service-name}: 원하는 service만 내리고 싶은 경우
+-v: 해당 Container의 volume도 같이 삭제하고 싶은 경우
+--rmi all(optional): 관련된 이미지도 전부 지우고 싶은 경우
 ```
 
 
