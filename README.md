@@ -56,6 +56,7 @@
 > Mac OS를 기준으로 설명합니다.  
 > Docker Daemon이 실행되고 있는 상태를 전제로 합니다.  
 > Container별 Port Custom은 **docker-compose.yml**에서 가능합니다.
+
 <br/>
 
 ***Docker Compose를 활용한 전체 Image Build 및 Container 실행***  
@@ -93,7 +94,7 @@ docker compose down {service-name} -v --rmi all
 [옵션]
 {service-name}: 원하는 service만 내리고 싶은 경우
 -v: 해당 Container의 volume도 같이 삭제하고 싶은 경우
---rmi all(optional): 관련된 이미지도 전부 지우고 싶은 경우
+--rmi all: 관련된 이미지도 전부 지우고 싶은 경우
 ```
 
 
