@@ -58,39 +58,41 @@
 > Container별 Port Custom은 **docker-compose.yml**에서 가능합니다.
 <br/>
 
-***Docker Compose를 활용한 전체 Image Build 및 Container 실행***
+***Docker Compose를 활용한 전체 Image Build 및 Container 실행***  
+
 - 이미지 빌드 및 컨테이너 실행 Command
-  ```sh
-  docker compose up {service-name} -d
+```sh
+docker compose up {service-name} -d  
+[옵션]
+{service-name}: 원하는 service만 올리고 싶은 경우  
+-d: Background로 Container를 띄우는 설정
+```  
+![Image Build](./assets/build_docker_images.png)
 
-  - {service-name}(optional): 원하는 service만 올리고 싶은 경우
-  ```
-  - 
-  ![Image Build](./assets/build_docker_images.png)
-
-- Container Running 단계
+- Container Running 단계  
 ![Container Running](./assets/container_running.png)
 
 - 실행 중인 Container 확인
   ```sh
     docker ps -a | grep satc
   ```
-  - 아래 6개 Container가 정상 실행 중인 상태
+  - 아래 6개 Container가 정상 실행 중인 상태  
     ![Container Check](./assets/container_check.png)
 
-- 문서관리포탈 Frontend 접속 확인
-  - [CMP 문서관리포탈 바로가기](http://localhost:3000)
+- [CMP 문서관리포탈](http://localhost:3000) 접속 확인
 
 
-***Docker Compose를 활용한 전체 Image Build 및 Container 삭제***
+***Docker Compose를 활용한 전체 Image Build 및 Container 삭제***  
+
 - 컨테이너 중지 및 이미지 삭제 Command
-  ```
+```sh
   docker compose down {service-name} -v --rmi all
+  [옵션]
+  {service-name}: 원하는 service만 내리고 싶은 경우
+  -v: 해당 Container의 volume도 같이 삭제하고 싶은 경우
+  --rmi all(optional): 관련된 이미지도 전부 지우고 싶은 경우
+```
 
-  - {service-name}(optional): 원하는 service만 내리고 싶은 경우
-  - -v(optional): 해당 Container의 volume도 같이 삭제하고 싶은 경우
-  - --rmi all(optional): 관련된 이미지도 전부 지우고 싶은 경우
-  ```
 
 ---
 ## 🌈  License
@@ -99,6 +101,7 @@
 | 1  | Elasticsearch | 8.11.0 | [Elastic License 2.0](https://www.elastic.co/kr/licensing/elastic-license) | 문서 Indexing 저장 및 Search Engine | [조직 내부적으로 사용 가능](https://www.elastic.co/kr/licensing/elastic-license/faq/) |
 | 2  | PostgreSQL | 16.3 | [PostgreSQL License](https://www.postgresql.org/about/licence/) | 문서 메타데이터 관리 | BSD, MIT License와 유사 |
 | 3  | MinIO | RELEASE.2025-09-07T16-13-09Z | [GNU AGPL v3](https://www.min.io/compliance#Licensing) | 실제 문서 데이터 관리 | [조직 내부적으로 사용 가능](https://www.gnu.org/licenses/gpl-faq.html#GPLRequireSourcePostedPublic) |
+
 > 단, 위 License의 적용 범위는, 개인 및 사내 환경(내부)에서 사용하는 경우를 전제로 합니다.  
 > 서비스를 공개적으로 배포하거나 외부 고객이 활용하는 경우, 라이센스 정책 위반·소스코드 공개 의무 발생 등의 문제가 발생할 수 있습니다. 
 
