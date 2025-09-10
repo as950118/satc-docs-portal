@@ -1,0 +1,41 @@
+
+version: '3.8'
+
+services:
+  # Elasticsearch
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # FastAPI application with internal queue
+  # api:
+  #   build: .
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - elasticsearch
+  #   environment:
+  #     - MINIO_ENDPOINT=host.docker.internal:9000
+  #     - MINIO_ACCESS_KEY=minioadmin
+  #     - MINIO_SECRET_KEY=minioadmin
+  #     - MINIO_SECURE=false
+  #     - ELASTICSEARCH_HOST=elasticsearch
+  #     - ELASTICSEARCH_PORT=9200
+  #   volumes:
+  #     - .:/app
+  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+volumes:
+  es_data:
+

@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # Elasticsearch
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    platform: linux/amd64
+    container_name: indexing-elasticsearch
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - indexing-network
+
+  # MinIO (Object Storage)
+  minio:
+    image: minio/minio:latest
+    platform: linux/amd64
+    container_name: indexing-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - indexing-network
+
+  # FastAPI application (using offline-built image)
+  api:
+    image: indexing-server-offline:latest
+    container_name: indexing-server
+    ports:
+      - "8000:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_SECURE=false
+      - MINIO_BUCKET_NAME=documents
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - ELASTICSEARCH_INDEX=document_chunks
+      - DEBUG=false
+      - QUEUE_MAX_WORKERS=4
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=100
+      - MIN_CHUNK_LENGTH=100
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - indexing-network
+    restart: unless-stopped
+
+volumes:
+  es_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  indexing-network:
+    driver: bridge

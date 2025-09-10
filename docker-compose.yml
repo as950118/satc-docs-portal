@@ -1,0 +1,176 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16.3-alpine
+    container_name: satc-docs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-docs}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-okestro2018}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - docs-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-docs}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Elasticsearch
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: satc-docs-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms${ES_HEAP_SIZE:-512m} -Xmx${ES_HEAP_SIZE:-512m}"
+      - cluster.name=docs-cluster
+      - node.name=docs-node
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+      - "${ELASTICSEARCH_TRANSPORT_PORT:-9300}:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - docs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: satc-docs-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - docs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 20s
+
+  # Backend Service (Spring Boot)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: satc-docs-backend
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILE:-satc}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-docs}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-okestro2018}
+      - MINIO_HOST=minio
+      - MINIO_PORT=${MINIO_PORT:-9000}
+      - MINIO_CLIENT_ID=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_CLIENT_SECRET=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-cmp-docs}
+      - CORS_HOST=${FRONTEND_URL:-http://localhost:3000}
+      - EXTERNAL_API_HOST=http://indexing
+      - EXTERNAL_API_PORT=${INDEXING_PORT:-8000}
+      - EXTERNAL_API_ENABLED=${EXTERNAL_API_ENABLED:-true}
+      - JAVA_OPTS=${JAVA_OPTS:--Xmx512m -Xms256m}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - docs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/hello"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Indexing Service (FastAPI)
+  indexing:
+    build:
+      context: ./indexing
+      dockerfile: Dockerfile
+    container_name: satc-docs-indexing
+    restart: unless-stopped
+    environment:
+      - MINIO_ENDPOINT=minio:${MINIO_PORT:-9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_SECURE=${MINIO_SECURE:-false}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-documents}
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT:-9200}
+      - ELASTICSEARCH_INDEX=${ELASTICSEARCH_INDEX:-document_chunks}
+      - QUEUE_MAX_WORKERS=${QUEUE_MAX_WORKERS:-4}
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=${INDEXING_PORT:-8000}
+      - DEBUG=${DEBUG:-false}
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-100}
+      - MIN_CHUNK_LENGTH=${MIN_CHUNK_LENGTH:-100}
+    ports:
+      - "${INDEXING_PORT:-8000}:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - docs-network
+
+  # Frontend Service (Vue.js + Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: satc-docs-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - VITE_API_BASE_URL=${BACKEND_URL:-http://localhost:8080}
+      - VITE_INDEXING_API_URL=${INDEXING_URL:-http://localhost:8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - docs-network
+
+volumes:
+  postgres_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  docs-network:
+    driver: bridge
+    name: satc-docs-network

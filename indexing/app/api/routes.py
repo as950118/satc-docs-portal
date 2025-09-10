@@ -1,0 +1,511 @@
+"""
+FastAPI routes for the indexing server
+"""
+import logging
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, Query
+from app.models.schemas import (
+    DocumentProcessRequest, 
+    DocumentProcessResponse, 
+    TaskStatusResponse, 
+    TaskStatus,
+    DocumentDeleteRequest,
+    DocumentDeleteResponse,
+    ClearAllResponse
+)
+from app.services.queue_service import get_queue_service, TaskStatus as QueueTaskStatus
+from app.services.elasticsearch_client import elasticsearch_client
+from app.services.full_document_client import full_document_client
+from app.services import document_processor  # Import to register handlers
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)  # 명시적으로 로그 레벨 설정
+
+# Create router
+router = APIRouter()
+
+
+@router.post("/process-document", response_model=DocumentProcessResponse)
+async def process_document(request: DocumentProcessRequest) -> DocumentProcessResponse:
+    """
+    Process a document: download from MinIO, chunk, and index to Elasticsearch
+    
+    Args:
+        request: Document processing request
+        
+    Returns:
+        Document processing response with task ID
+    """
+    try:
+        logger.info(f"Received document processing request for file: {request.bucket_name}/{request.object_name}")
+        
+        # Submit task to internal queue
+        queue_service = get_queue_service() 
+        task_id = queue_service.submit_task(
+            task_type="process_document",
+            data={
+                "bucket_name": request.bucket_name,
+                "object_name": request.object_name,
+                "metadata": request.metadata
+            }
+        )
+        
+        logger.info(f"Submitted processing task {task_id} for file: {request.bucket_name}/{request.object_name}")
+        
+        return DocumentProcessResponse(
+            task_id=task_id,
+            status=TaskStatus.PENDING,
+            message=f"문서 처리 작업이 큐에 추가되었습니다. 작업 ID: {task_id}"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error submitting document processing task: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"문서 처리 작업 제출 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/status/{task_id}", response_model=TaskStatusResponse)
+async def get_task_status(task_id: str) -> TaskStatusResponse:
+    """
+    Get the status of a processing task
+    
+    Args:
+        task_id: Task ID to check status for
+        
+    Returns:
+        Task status response
+    """
+    try:
+        # Get task from internal queue
+        queue_service = get_queue_service()
+        task = queue_service.get_task_status(task_id)
+        
+        if not task:
+            raise HTTPException(
+                status_code=404,
+                detail=f"작업을 찾을 수 없습니다: {task_id}"
+            )
+        
+        # Map internal task status to API task status
+        status_mapping = {
+            QueueTaskStatus.PENDING: TaskStatus.PENDING,
+            QueueTaskStatus.PROCESSING: TaskStatus.PROCESSING,
+            QueueTaskStatus.COMPLETED: TaskStatus.COMPLETED,
+            QueueTaskStatus.FAILED: TaskStatus.FAILED
+        }
+        
+        api_status = status_mapping.get(task.status, TaskStatus.FAILED)
+        
+        return TaskStatusResponse(
+            task_id=task_id,
+            status=api_status,
+            progress=task.progress,
+            result=task.result,
+            error_message=task.error
+        )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting task status for {task_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"작업 상태 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/search")
+async def search_documents(
+    q: str = Query(..., description="검색 쿼리"),
+    size: int = Query(10, ge=1, le=100, description="반환할 결과 수"),
+    source_file: Optional[str] = Query(None, description="특정 소스 파일로 필터링")
+) -> Dict[str, Any]:
+    """
+    Search indexed document chunks
+    
+    Args:
+        q: Search query string
+        size: Number of results to return
+        source_file: Optional filter by source file
+        
+    Returns:
+        Search results
+    """
+    try:
+        logger.info(f"Received search request: query='{q}', size={size}, source_file={source_file}")
+        
+        # Search using Elasticsearch client
+        results = elasticsearch_client.search_chunks(
+            query=q,
+            size=size,
+            source_file=source_file
+        )
+        
+        if "error" in results:
+            raise HTTPException(
+                status_code=500,
+                detail=f"검색 중 오류가 발생했습니다: {results['error']}"
+            )
+        
+        return {
+            "query": q,
+            "total_results": results["total"],
+            "returned_results": len(results["results"]),
+            "max_score": results["max_score"],
+            "results": results["results"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in search: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"검색 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/health")
+async def health_check() -> Dict[str, Any]:
+    """
+    Health check endpoint
+    
+    Returns:
+        Health status of the service
+    """
+    try:
+        # Submit health check task to internal queue
+        queue_service = get_queue_service()
+        task_id = queue_service.submit_task("health_check", {})
+        
+        # Wait for result (simple polling for health check)
+        import time
+        max_wait = 10  # 10 seconds
+        wait_time = 0.1
+        total_waited = 0
+        
+        while total_waited < max_wait:
+            task = queue_service.get_task_status(task_id)
+            if task and task.status == QueueTaskStatus.COMPLETED:
+                return {
+                    "status": "healthy" if task.result.get("success") else "unhealthy",
+                    "details": task.result,
+                    "message": "서비스 상태 확인 완료"
+                }
+            elif task and task.status == QueueTaskStatus.FAILED:
+                return {
+                    "status": "unhealthy",
+                    "details": {"error": task.error},
+                    "message": "서비스 상태 확인 실패"
+                }
+            
+            time.sleep(wait_time)
+            total_waited += wait_time
+        
+        # Timeout
+        return {
+            "status": "unhealthy",
+            "details": {"error": "Health check timeout"},
+            "message": "서비스 상태 확인 시간 초과"
+        }
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "details": {"error": str(e)},
+            "message": "서비스 상태 확인 실패"
+        }
+
+
+@router.get("/stats")
+async def get_stats() -> Dict[str, Any]:
+    """
+    Get system statistics
+    
+    Returns:
+        System statistics
+    """
+    try:
+        # Get Elasticsearch index stats
+        es_stats = elasticsearch_client.get_index_stats()
+        
+        # Get internal queue stats
+        queue_service = get_queue_service()
+        queue_stats = queue_service.get_queue_stats()
+        
+        return {
+            "elasticsearch": es_stats,
+            "queue": queue_stats,
+            "message": "시스템 통계 조회 완료"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting stats: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"시스템 통계 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.delete("/documents", response_model=DocumentDeleteResponse)
+async def delete_documents(request: DocumentDeleteRequest) -> DocumentDeleteResponse:
+    """
+    파일 이름 리스트를 받아서 해당하는 모든 청크와 전체 문서를 일괄 삭제
+    
+    Args:
+        request: 문서 삭제 요청 (files 리스트 포함)
+        
+    Returns:
+        문서 삭제 응답
+    """
+    try:
+        print(f"[DEBUG] DELETE request received for {len(request.files)} files")
+        logger.info(f"Received document deletion request for {len(request.files)} files: {request.files}")
+        
+        # 결과 추적 변수들
+        results = []
+        total_deleted_chunks = 0
+        total_deleted_documents = 0
+        successful_deletions = 0
+        failed_deletions = 0
+        
+        # 각 파일에 대해 삭제 수행
+        for file_name in request.files:
+            try:
+                print(f"[DEBUG] Processing deletion for file: {file_name}")
+                logger.info(f"Starting deletion process for file: {file_name}")
+                
+                # 파일명에서 확장자 제거하여 document_id 생성
+                document_id = file_name.replace('.md', '').replace('.txt', '')
+                source_file = f"documents/{file_name}"
+                
+                # 1. 청크 삭제 (source_file 기준)
+                logger.info(f"Deleting chunks for source file: {source_file}")
+                chunk_result = elasticsearch_client.delete_chunks_by_source(source_file)
+                
+                deleted_chunks = chunk_result.get("deleted", 0) if chunk_result.get("success", False) else 0
+                
+                # 2. 전체 문서 삭제 (document_id 기준)
+                logger.info(f"Deleting full document for document ID: {document_id}")
+                full_doc_result = full_document_client.delete_document(document_id)
+                
+                deleted_full_document = full_doc_result.get("success", False)
+                
+                # 결과 기록
+                if chunk_result.get("success", False) or deleted_full_document:
+                    successful_deletions += 1
+                    total_deleted_chunks += deleted_chunks
+                    if deleted_full_document:
+                        total_deleted_documents += 1
+                    
+                    result_message = f"Successfully deleted {deleted_chunks} chunks and full document"
+                    logger.info(f"Successfully processed {file_name}: chunks={deleted_chunks}, full_doc={deleted_full_document}")
+                else:
+                    failed_deletions += 1
+                    result_message = f"Failed to delete: {chunk_result.get('error', 'Unknown error')}"
+                    logger.warning(f"Failed to process {file_name}: {result_message}")
+                
+                # 개별 파일 결과 추가
+                results.append({
+                    "file_name": file_name,
+                    "success": chunk_result.get("success", False) or deleted_full_document,
+                    "deleted_chunks": deleted_chunks,
+                    "deleted_full_document": deleted_full_document,
+                    "message": result_message
+                })
+                
+            except Exception as file_error:
+                failed_deletions += 1
+                error_message = f"Error processing {file_name}: {str(file_error)}"
+                logger.error(error_message)
+                
+                results.append({
+                    "file_name": file_name,
+                    "success": False,
+                    "deleted_chunks": 0,
+                    "deleted_full_document": False,
+                    "message": error_message
+                })
+        
+        # 전체 결과 메시지 생성
+        overall_success = failed_deletions == 0
+        message = f"Bulk deletion completed: {successful_deletions} successful, {failed_deletions} failed"
+        
+        logger.info(f"Bulk deletion summary: total_files={len(request.files)}, successful={successful_deletions}, failed={failed_deletions}, total_chunks_deleted={total_deleted_chunks}, total_docs_deleted={total_deleted_documents}")
+        
+        return DocumentDeleteResponse(
+            success=overall_success,
+            total_files=len(request.files),
+            successful_deletions=successful_deletions,
+            failed_deletions=failed_deletions,
+            total_deleted_chunks=total_deleted_chunks,
+            total_deleted_documents=total_deleted_documents,
+            results=results,
+            message=message
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in document deletion: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"문서 삭제 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/search-documents")
+async def search_full_documents(
+    q: str = Query(..., description="검색 쿼리"),
+    size: int = Query(default=10, ge=1, le=100, description="반환할 결과 수"),
+    from_: int = Query(default=0, ge=0, alias="from", description="시작 오프셋")
+):
+    """
+    전체 문서에서 검색 (한국어 및 코드 최적화된 analyzer 사용)
+    
+    Args:
+        q: 검색 쿼리
+        size: 반환할 결과 수 (1-100)
+        from_: 시작 오프셋
+        
+    Returns:
+        검색 결과
+    """
+    try:
+        logger.info(f"Full document search request: query='{q}', size={size}, from={from_}")
+        
+        # 전체 문서에서 검색
+        results = full_document_client.search_documents(
+            query=q,
+            size=size,
+            from_=from_
+        )
+        
+        if "error" in results:
+            logger.error(f"Full document search error: {results['error']}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"전체 문서 검색 중 오류가 발생했습니다: {results['error']}"
+            )
+        
+        logger.info(f"Full document search completed: {results['returned_results']} results returned")
+        
+        return {
+            "query": q,
+            "total_results": results["total_results"],
+            "returned_results": results["returned_results"],
+            "max_score": results["max_score"],
+            "results": results["results"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in full document search: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"전체 문서 검색 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.get("/documents/{document_id}")
+async def get_full_document(document_id: str):
+    """
+    문서 ID로 전체 문서 조회
+    
+    Args:
+        document_id: 조회할 문서 ID
+        
+    Returns:
+        전체 문서 데이터
+    """
+    try:
+        logger.info(f"Get full document request: document_id={document_id}")
+        
+        document = full_document_client.get_document(document_id)
+        
+        if document is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"문서를 찾을 수 없습니다: {document_id}"
+            )
+        
+        logger.info(f"Full document retrieved: {document_id}")
+        
+        return document
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting full document: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"문서 조회 중 오류가 발생했습니다: {str(e)}"
+        )
+
+
+@router.delete("/clear-all", response_model=ClearAllResponse)
+async def clear_all_data() -> ClearAllResponse:
+    """
+    ES에 있는 모든 청크와 전체 문서를 삭제
+    
+    Returns:
+        전체 삭제 응답
+    """
+    try:
+        print(f"[DEBUG] CLEAR ALL request received")
+        logger.info("Received request to clear all chunks and documents from Elasticsearch")
+        
+        # 1. 모든 청크 삭제
+        logger.info("Starting deletion of all chunks")
+        chunks_result = elasticsearch_client.delete_all_chunks()
+        
+        if not chunks_result.get("success", False):
+            logger.error(f"Failed to delete all chunks: {chunks_result.get('error')}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"청크 전체 삭제 실패: {chunks_result.get('error', 'Unknown error')}"
+            )
+        
+        deleted_chunks = chunks_result.get("deleted", 0)
+        chunks_index = chunks_result.get("index_name", "unknown")
+        logger.info(f"Successfully deleted all {deleted_chunks} chunks from index: {chunks_index}")
+        
+        # 2. 모든 전체 문서 삭제
+        logger.info("Starting deletion of all full documents")
+        documents_result = full_document_client.delete_all_documents()
+        
+        if not documents_result.get("success", False):
+            logger.error(f"Failed to delete all full documents: {documents_result.get('error')}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"전체 문서 삭제 실패: {documents_result.get('error', 'Unknown error')}"
+            )
+        
+        deleted_documents = documents_result.get("deleted", 0)
+        documents_index = documents_result.get("index_name", "unknown")
+        logger.info(f"Successfully deleted all {deleted_documents} full documents from index: {documents_index}")
+        
+        # 결과 메시지 생성
+        message = f"Successfully cleared all data: {deleted_chunks} chunks and {deleted_documents} documents deleted"
+        
+        logger.info(f"Clear all operation completed: chunks={deleted_chunks}, documents={deleted_documents}")
+        
+        return ClearAllResponse(
+            success=True,
+            deleted_chunks=deleted_chunks,
+            deleted_documents=deleted_documents,
+            chunks_index=chunks_index,
+            documents_index=documents_index,
+            message=message
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in clear all operation: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"전체 데이터 삭제 중 오류가 발생했습니다: {str(e)}"
+        )

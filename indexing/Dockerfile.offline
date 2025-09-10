@@ -1,0 +1,51 @@
+# Multi-stage build for offline deployment (AMD64 architecture)
+# Stage 1: Download dependencies
+FROM --platform=linux/amd64 python:3.11-slim as dependency-downloader
+
+WORKDIR /tmp
+
+# Install pip and upgrade it
+RUN pip install --upgrade pip
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Download all dependencies as wheels (including transitive dependencies)
+RUN pip download -r requirements.txt -d /tmp/wheels
+
+# Also download pip itself and setuptools for offline installation
+RUN pip download pip setuptools wheel -d /tmp/wheels
+
+# Stage 2: Create final image with all dependencies included
+FROM --platform=linux/amd64 python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies that might be needed
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy downloaded wheels from first stage
+COPY --from=dependency-downloader /tmp/wheels /app/wheels
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install dependencies from local wheels (offline installation)
+RUN pip install --no-index --find-links /app/wheels -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Expose port
+EXPOSE 8000
+
+# Default command
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
