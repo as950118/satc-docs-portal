@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.5'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.okestro'
+version = '0.0.1-SNAPSHOT'
+description = 'docs'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation("io.minio:minio:8.5.17")
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Java 컴파일 시 parameters 플래그 추가
+tasks.withType(JavaCompile) {
+    options.compilerArgs += ['-parameters']
+}

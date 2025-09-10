@@ -1,0 +1,53 @@
+# Frozen requirements with exact versions for offline deployment
+# Generated for reproducible builds in air-gapped environments
+
+# Core FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Object storage client
+minio==7.2.0
+
+# Search engine client
+elasticsearch==8.11.0
+
+# Text processing and chunking
+langchain-text-splitters==0.0.1
+
+# Data validation and settings
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# File handling
+python-multipart==0.0.6
+aiofiles==23.2.0
+
+# Environment configuration
+python-dotenv==1.0.0
+
+# HTTP client
+requests==2.31.0
+
+# Type annotations support
+typing-extensions>=4.6.0
+
+# Additional dependencies that might be pulled in automatically
+# (These will be resolved during pip download)
+annotated-types
+anyio
+certifi
+charset-normalizer
+click
+h11
+httptools
+idna
+python-dateutil
+six
+sniffio
+starlette
+urllib3
+uvloop
+watchfiles
+websockets
+
+
