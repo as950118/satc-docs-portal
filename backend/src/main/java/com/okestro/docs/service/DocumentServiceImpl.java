@@ -3,6 +3,7 @@ package com.okestro.docs.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -93,61 +94,13 @@ public class DocumentServiceImpl implements DocumentService {
     }
     
     public DocumentResponse uploadDocument(byte[] fileBytes, String originalFilename, String contentType, String parentId) {
-        try {
-            // 버킷이 존재하지 않으면 생성
-            createBucketIfNotExists();
-            
-            // 파일 정보 파싱
-            if (originalFilename == null || originalFilename.isEmpty()) {
-                throw new IllegalArgumentException("파일명이 유효하지 않습니다.");
-            }
-            
-            String extension = getFileExtension(originalFilename);
-            
-            UUID uuid = UUID.randomUUID();
-            String documentId = uuid.toString();
-            String filePath = generateFilePath(documentId, extension);
+        // 새로운 UUID 생성하여 uploadDocumentWithId 호출
+        String documentId = UUID.randomUUID().toString();
+        String title = removeFileExtension(originalFilename);
+        String extension = getFileExtension(originalFilename);
+        String normalizedTitle = Normalizer.normalize(title, Normalizer.Form.NFC);
 
-            DocumentEntity documentEntity = DocumentEntity.builder()
-                .id(documentId)
-                .parentId(parentId)
-                .title(removeFileExtension(originalFilename))
-                .bucket(bucketName)
-                .filePath(filePath) // 임시 filePath
-                .extension(extension)
-                .isFolder(false) // 파일이므로 폴더가 아님
-                .status(DocumentStatus.UPLOADING) // 초기 상태: 업로드 중
-                .build();
-            
-            DocumentEntity savedEntity = docsRepository.save(documentEntity);
-            
-            // MinIO에 파일 업로드 (byte array 사용)
-            try (InputStream inputStream = new ByteArrayInputStream(fileBytes)) {
-                minioClient.putObject(
-                    PutObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(filePath)
-                        .stream(inputStream, fileBytes.length, -1)
-                        .contentType(contentType)
-                        .build()
-                );
-                logger.info("[MINIO] File uploaded successfully: {}", filePath);
-                
-                // MinIO 업로드 완료 후 상태를 INDEXING으로 변경
-                savedEntity.updateStatus(DocumentStatus.INDEXING);
-                docsRepository.save(savedEntity);
-                logger.info("[STATUS] Document status updated to INDEXING: {}", documentId);
-                
-                // 외부 API 호출
-                externalService.notifyDocumentUploaded(bucketName, filePath);
-            }
-            
-            return new DocumentResponse(savedEntity);
-            
-        } catch (Exception e) {
-            logger.error("[UPLOAD ERROR] Failed to upload document: {}", e.getMessage(), e);
-            throw new RuntimeException("문서 업로드에 실패했습니다: " + e.getMessage());
-        }
+        return uploadDocumentWithId(fileBytes, contentType, parentId, documentId, normalizedTitle, extension);
     }
 
     private String getFileExtension(String filename) {
@@ -166,8 +119,8 @@ public class DocumentServiceImpl implements DocumentService {
         return filename.substring(0, lastDotIndex);
     }
     
-    private String generateFilePath(String documentId, String extension) {
-        return String.format("documents/%s.%s", documentId, extension);
+    private String generateFilePath(String objectName, String extension) {
+        return String.format("documents/%s.%s", objectName, extension);
     }
     
     @Override
@@ -198,12 +151,13 @@ public class DocumentServiceImpl implements DocumentService {
             
             // 빈 문자열을 null로 변환
             String normalizedParentId = (parentId != null && parentId.trim().isEmpty()) ? null : parentId;
-            
+            String normalizedTitle = Normalizer.normalize(title, Normalizer.Form.NFC);
+
             // 2. DB에 폴더 정보 저장 (동기)
             DocumentEntity folderEntity = DocumentEntity.builder()
                 .id(documentId)
                 .parentId(normalizedParentId)
-                .title(title)
+                .title(normalizedTitle)
                 .bucket(bucketName)
                 .filePath(null) // 폴더는 파일 경로가 없음
                 .extension(null) // 폴더는 확장자가 없음
@@ -268,19 +222,21 @@ public class DocumentServiceImpl implements DocumentService {
             byte[] fileBytes = file.getBytes();
             
             // 실제 업로드 처리
-            uploadDocumentWithId(fileBytes, originalFilename, contentType, parentId, documentId, title, extension);
+            uploadDocumentWithId(fileBytes, contentType, parentId, documentId, title, extension);
             
         } catch (Exception e) {
             logger.error("[ASYNC CREATE ERROR] 비동기 문서 생성 실패: {}", e.getMessage(), e);
         }
     }
     
-    private DocumentResponse uploadDocumentWithId(byte[] fileBytes, String originalFilename, String contentType, String parentId, String documentId, String title, String extension) {
+    private DocumentResponse uploadDocumentWithId(byte[] fileBytes, String contentType, String parentId, String documentId, String title, String extension) {
         try {
+            
             // 버킷이 존재하지 않으면 생성
             createBucketIfNotExists();
             
-            String filePath = generateFilePath(documentId, extension);
+            String objectName = String.format("%s/%s", documentId, title);
+            String filePath = generateFilePath(objectName, extension);
             
             DocumentEntity documentEntity = DocumentEntity.builder()
                 .id(documentId)

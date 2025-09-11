@@ -32,45 +32,69 @@ class ChunkingService:
         
         logger.info(f"Initialized ChunkingService with chunk_size={self.chunk_size}, chunk_overlap={self.chunk_overlap}, min_chunk_length={self.min_chunk_length}")
     
-    def _extract_title_from_metadata_or_content(self, content: str, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def _extract_title_from_metadata_or_object_name(self, content: str, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """
-        메타데이터나 내용에서 제목을 추출
+        메타데이터나 objectName에서 제목을 추출
         
         Args:
-            content: 청크 내용
-            file_path: 파일 경로
+            content: 청크 내용 (사용되지 않음, 호환성 유지)
+            file_path: 파일 경로 (MinIO objectName)
             metadata: 메타데이터
             
         Returns:
             추출된 제목
         """
-        # 메타데이터에서 제목 찾기
+        # 메타데이터에서 제목 찾기 (최우선)
         if metadata and "document_title" in metadata:
             return metadata["document_title"]
         
-        # 내용에서 제목 추출 시도
-        lines = content.split('\n')
-        for line in lines[:5]:  # 처음 5줄만 확인
-            line = line.strip()
-            if line.startswith('# '):
-                title = line[2:].strip()
-                if title:
-                    return title
-            elif line.startswith('**') and line.endswith('**') and len(line) > 4:
-                title = line[2:-2].strip()
-                if title and len(title) < 100:  # 너무 긴 것은 제외
-                    return title
-        
-        # 파일명에서 제목 추출 (fallback)
-        if "/" in file_path:
-            filename = file_path.split("/")[-1]
-        else:
-            filename = file_path
-        
-        if "." in filename:
-            filename = filename.rsplit(".", 1)[0]
-        
-        return filename
+        # MinIO objectName에서 제목 추출 (documents/UUID/title 형식)
+        try:
+            # object_name을 '/'로 분리
+            parts = file_path.split("/")
+            
+            # documents/UUID/title 형식 확인
+            if len(parts) >= 3 and parts[0] == "documents":
+                uuid_part = parts[1]
+                title_part = "/".join(parts[2:])  # 여러 단계 경로도 지원
+                
+                # UUID 검증 (간단한 형식 체크)
+                if (len(uuid_part) == 36 and 
+                    uuid_part.count("-") == 4 and 
+                    len(uuid_part.replace("-", "")) == 32):
+                    
+                    # 확장자 제거
+                    if "." in title_part:
+                        title_part = title_part.rsplit(".", 1)[0]
+                    
+                    if title_part:
+                        # URL 인코딩된 문자들을 디코딩 및 정리
+                        title = title_part.replace("%20", " ").replace("_", " ")
+                        return title
+            
+            # documents/UUID/title 패턴이 아닌 경우 파일명을 제목으로 사용
+            if "/" in file_path:
+                filename = file_path.split("/")[-1]
+            else:
+                filename = file_path
+            
+            if "." in filename:
+                filename = filename.rsplit(".", 1)[0]
+            
+            return filename.replace("_", " ")
+            
+        except Exception as e:
+            logger.warning(f"Error extracting title from object_name {file_path}: {e}")
+            # 에러 발생시 파일명을 그대로 사용
+            if "/" in file_path:
+                filename = file_path.split("/")[-1]
+            else:
+                filename = file_path
+            
+            if "." in filename:
+                filename = filename.rsplit(".", 1)[0]
+            
+            return filename.replace("_", " ")
     
     def _split_markdown(self, text: str, source_path: str) -> List[Dict]:
         """Markdown을 헤더→길이 기준으로 2단계 청크."""
@@ -162,7 +186,7 @@ class ChunkingService:
                         chunk_metadata.update(metadata)
                     
                     # 제목 추출
-                    title = self._extract_title_from_metadata_or_content(raw_chunk["text"], file_path, metadata)
+                    title = self._extract_title_from_metadata_or_object_name(raw_chunk["text"], file_path, metadata)
                     
                     chunk = DocumentChunk(
                         chunk_id=chunk_id,
@@ -214,7 +238,7 @@ class ChunkingService:
                         chunk_metadata.update(metadata)
                     
                     # 제목 추출
-                    title = self._extract_title_from_metadata_or_content(raw_chunk["text"], file_path, metadata)
+                    title = self._extract_title_from_metadata_or_object_name(raw_chunk["text"], file_path, metadata)
                     
                     chunk = DocumentChunk(
                         chunk_id=chunk_id,

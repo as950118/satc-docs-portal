@@ -12,13 +12,13 @@ def test_bulk_delete():
     """일괄 문서 삭제 테스트"""
     print("=== 일괄 문서 삭제 테스트 ===")
     
-    # 삭제 요청 데이터
+    # 삭제 요청 데이터 (새로운 UUID/title 형식으로 수정)
     delete_data = {
-        "fileNames": [
-            "abc-dwer-123.md",
-            "test-document.md",
-            "guide-policy.md",
-            "nonexistent-file.md"
+        "files": [
+            "12345678-1234-1234-1234-123456789abc/API_Documentation.md",
+            "87654321-4321-4321-4321-cba987654321/User_Guide.md",
+            "abcdefab-cdef-abcd-efab-cdefabcdefab/Installation_Guide.md",
+            "nonexistent-uuid/nonexistent-file.md"
         ]
     }
     

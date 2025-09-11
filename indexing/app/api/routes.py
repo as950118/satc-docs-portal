@@ -17,6 +17,7 @@ from app.services.queue_service import get_queue_service, TaskStatus as QueueTas
 from app.services.elasticsearch_client import elasticsearch_client
 from app.services.full_document_client import full_document_client
 from app.services import document_processor  # Import to register handlers
+from app.services.document_processor import extract_document_id_from_object_name
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)  # 명시적으로 로그 레벨 설정
@@ -278,13 +279,14 @@ async def delete_documents(request: DocumentDeleteRequest) -> DocumentDeleteResp
                 print(f"[DEBUG] Processing deletion for file: {file_name}")
                 logger.info(f"Starting deletion process for file: {file_name}")
                 
-                # 파일명에서 확장자 제거하여 document_id 생성
-                document_id = file_name.replace('.md', '').replace('.txt', '')
-                source_file = f"documents/{file_name}"
+                # objectName에서 document_id(UUID) 추출
+                object_name = f"documents/{file_name}"
+                document_id = extract_document_id_from_object_name(object_name)
+                source_file = object_name
                 
-                # 1. 청크 삭제 (source_file 기준)
-                logger.info(f"Deleting chunks for source file: {source_file}")
-                chunk_result = elasticsearch_client.delete_chunks_by_source(source_file)
+                # 1. 청크 삭제 (document_id/UUID 기준으로 통일)
+                logger.info(f"Deleting chunks for document ID: {document_id}")
+                chunk_result = elasticsearch_client.delete_chunks_by_document_id(document_id)
                 
                 deleted_chunks = chunk_result.get("deleted", 0) if chunk_result.get("success", False) else 0
                 

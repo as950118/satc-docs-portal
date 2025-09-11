@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=100, env="CHUNK_OVERLAP")
     min_chunk_length: int = Field(default=100, env="MIN_CHUNK_LENGTH")
     
+    # Backend API Configuration
+    backend_api_host: str = Field(default="host.docker.internal", env="BACKEND_API_HOST")
+    backend_api_port: int = Field(default=8080, env="BACKEND_API_PORT")
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

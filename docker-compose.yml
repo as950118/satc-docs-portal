@@ -132,6 +132,8 @@ services:
       - CHUNK_SIZE=${CHUNK_SIZE:-1000}
       - CHUNK_OVERLAP=${CHUNK_OVERLAP:-100}
       - MIN_CHUNK_LENGTH=${MIN_CHUNK_LENGTH:-100}
+      - BACKEND_API_HOST=backend
+      - BACKEND_API_PORT=8080
     ports:
       - "${INDEXING_PORT:-8000}:8000"
     depends_on:
