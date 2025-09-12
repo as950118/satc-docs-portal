@@ -10,49 +10,118 @@ from app.services.chunking_service import chunking_service
 from app.services.elasticsearch_client import elasticsearch_client
 from app.services.full_document_client import full_document_client
 from app.models.schemas import FullDocument
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def extract_title_from_content(content: str, object_name: str) -> str:
+def extract_title_from_object_name(object_name: str) -> str:
     """
-    마크다운 내용에서 제목을 추출
+    MinIO objectName에서 제목을 추출
+    objectName 형식: documents/UUID/title
     
     Args:
-        content: 문서 내용
-        object_name: 객체 이름 (fallback용)
+        object_name: MinIO 객체 이름
         
     Returns:
         추출된 제목
     """
-    lines = content.split('\n')
+    try:
+        # object_name을 '/'로 분리
+        parts = object_name.split("/")
+        
+        # documents/UUID/title 형식 확인
+        if len(parts) >= 3 and parts[0] == "documents":
+            uuid_part = parts[1]
+            title_part = "/".join(parts[2:])  # 여러 단계 경로도 지원
+            
+            # UUID 검증 (간단한 형식 체크)
+            if (len(uuid_part) == 36 and 
+                uuid_part.count("-") == 4 and 
+                len(uuid_part.replace("-", "")) == 32):
+                
+                # 확장자 제거
+                if "." in title_part:
+                    title_part = title_part.rsplit(".", 1)[0]
+                
+                if title_part:
+                    # URL 인코딩된 문자들을 디코딩 및 정리
+                    title = title_part.replace("%20", " ").replace("_", " ")
+                    return title
+        
+        # documents/UUID/title 패턴이 아닌 경우 파일명을 제목으로 사용
+        if "/" in object_name:
+            filename = object_name.split("/")[-1]
+        else:
+            filename = object_name
+        
+        if "." in filename:
+            filename = filename.rsplit(".", 1)[0]
+        
+        return filename.replace("_", " ")
+        
+    except Exception as e:
+        logger.warning(f"Error extracting title from object_name {object_name}: {e}")
+        # 에러 발생시 파일명을 그대로 사용
+        if "/" in object_name:
+            filename = object_name.split("/")[-1]
+        else:
+            filename = object_name
+        
+        if "." in filename:
+            filename = filename.rsplit(".", 1)[0]
+        
+        return filename.replace("_", " ")
+
+
+def extract_document_id_from_object_name(object_name: str) -> str:
+    """
+    MinIO objectName에서 UUID(document_id)를 추출
+    objectName 형식: documents/UUID/title
     
-    # 첫 번째 # 헤더를 찾기
-    for line in lines[:20]:  # 처음 20줄만 확인
-        line = line.strip()
-        if line.startswith('# '):
-            title = line[2:].strip()
-            if title:
-                return title
-    
-    # **제목** 형태 찾기
-    for line in lines[:10]:  # 처음 10줄만 확인
-        line = line.strip()
-        if line.startswith('**') and line.endswith('**') and len(line) > 4:
-            title = line[2:-2].strip()
-            if title and len(title) < 100:  # 너무 긴 것은 제외
-                return title
-    
-    # 파일명에서 제목 추출 (fallback)
-    if "/" in object_name:
-        filename = object_name.split("/")[-1]
-    else:
-        filename = object_name
-    
-    if "." in filename:
-        filename = filename.rsplit(".", 1)[0]
-    
-    return filename
+    Args:
+        object_name: MinIO 객체 이름
+        
+    Returns:
+        추출된 UUID (document_id)
+    """
+    try:
+        # object_name을 '/'로 분리
+        parts = object_name.split("/")
+        
+        # documents/UUID/title 형식 확인
+        if len(parts) >= 3 and parts[0] == "documents":
+            uuid_part = parts[1]
+            
+            # UUID 검증 (간단한 형식 체크)
+            if (len(uuid_part) == 36 and 
+                uuid_part.count("-") == 4 and 
+                len(uuid_part.replace("-", "")) == 32):
+                return uuid_part
+        
+        # documents/UUID/title 패턴이 아닌 경우 fallback
+        if "/" in object_name:
+            filename = object_name.split("/")[-1]
+        else:
+            filename = object_name
+        
+        if "." in filename:
+            filename = filename.rsplit(".", 1)[0]
+        
+        return filename
+        
+    except Exception as e:
+        logger.warning(f"Error extracting document_id from object_name {object_name}: {e}")
+        # 에러 발생시 파일명을 그대로 사용
+        if "/" in object_name:
+            filename = object_name.split("/")[-1]
+        else:
+            filename = object_name
+        
+        if "." in filename:
+            filename = filename.rsplit(".", 1)[0]
+        
+        return filename
 
 
 def update_document_status(object_name: str, status: str = "COMPLETE") -> bool:
@@ -60,23 +129,18 @@ def update_document_status(object_name: str, status: str = "COMPLETE") -> bool:
     문서 상태를 업데이트하는 API 호출
     
     Args:
-        object_name: MinIO 객체 이름 (예: documents/uuid.md)
+        object_name: MinIO 객체 이름 (예: documents/uuid_title.md)
         status: 업데이트할 상태 (기본값: COMPLETE)
         
     Returns:
         API 호출 성공 여부
     """
     try:
-        # object_name에서 documentId 추출 (documents/uuid.md -> uuid)
-        if "/" in object_name:
-            document_id = object_name.split("/")[-1]  # 마지막 부분 (파일명)
-            if "." in document_id:
-                document_id = document_id.rsplit(".", 1)[0]  # 확장자 제거
-        else:
-            document_id = object_name
+        # object_name에서 documentId(UUID) 추출
+        document_id = extract_document_id_from_object_name(object_name)
         
-        # API 호출
-        api_url = "http://localhost:8080/api/v1/docs/status"
+        # API 호출 (도커 환경 고려)
+        api_url = f"http://{settings.backend_api_host}:{settings.backend_api_port}/api/v1/docs/status"
         payload = {
             "documentId": document_id,
             "status": status
@@ -164,14 +228,16 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
         # Update progress: Chunking
         queue_service.update_task_progress(task_id, 70)
         
-        # Step 4: Extract title first
-        title = extract_title_from_content(content_str, object_name)
+        # Step 4: Extract title and document_id from object name
+        title = extract_title_from_object_name(object_name)
+        document_id = extract_document_id_from_object_name(object_name)
         
         # Chunk the document
         enhanced_metadata = metadata.copy() if metadata else {}
         enhanced_metadata.update({
             "bucket_name": bucket_name,
             "object_name": object_name,
+            "document_id": document_id,  # UUID를 메타데이터에 추가
             "document_title": title  # 제목을 메타데이터에 추가
         })
         
@@ -218,15 +284,7 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
         # Step 6: Index full document
         logger.info(f"Indexing full document for {bucket_name}/{object_name}")
         
-        # Extract document ID from object_name
-        if "/" in object_name:
-            document_id = object_name.split("/")[-1]
-            if "." in document_id:
-                document_id = document_id.rsplit(".", 1)[0]
-        else:
-            document_id = object_name
-        
-        # Create full document object (title already extracted above)
+        # Create full document object (document_id and title already extracted above)
         full_doc = FullDocument(
             document_id=document_id,
             title=title,

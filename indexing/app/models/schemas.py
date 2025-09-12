@@ -97,14 +97,14 @@ class DocumentChunk(BaseModel):
 
 class DocumentDeleteRequest(BaseModel):
     """Request model for document deletion"""
-    files: List[str] = Field(..., description="삭제할 파일 이름 리스트 (확장자 포함)")
+    files: List[str] = Field(..., description="삭제할 파일 경로 리스트 (UUID/title 형식, 확장자 포함)")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "files": [
-                    "abc-dwer-123.md",
-                    "test-document.md"
+                    "12345678-1234-1234-1234-123456789abc/API_Documentation.md",
+                    "87654321-4321-4321-4321-cba987654321/User_Guide.md"
                 ]
             }
         }

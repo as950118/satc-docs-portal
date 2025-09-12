@@ -51,6 +51,9 @@ class ElasticsearchClient:
                             "source_file": {
                                 "type": "keyword"
                             },
+                            "document_id": {
+                                "type": "keyword"
+                            },
                             "chunk_index": {
                                 "type": "integer"
                             },
@@ -403,51 +406,26 @@ class ElasticsearchClient:
             logger.info(f"Attempting to delete chunks for document ID: {document_id}")
             self._ensure_index_exists()
             
-            # documentId로 object_name 패턴을 구성 (documents/{document_id}.md 형태)
-            object_name_patterns = [
-                f"documents/{document_id}.md",
-                f"documents/{document_id}",
-                document_id  # 직접 매칭도 시도
-            ]
-            
-            total_deleted = 0
-            
-            for pattern in object_name_patterns:
-                # Query to find chunks with matching object_name
-                query = {
-                    "query": {
-                        "bool": {
-                            "should": [
-                                {
-                                    "term": {
-                                        "metadata.object_name.keyword": pattern
-                                    }
-                                },
-                                {
-                                    "wildcard": {
-                                        "metadata.object_name.keyword": f"*/{document_id}*"
-                                    }
-                                }
-                            ]
-                        }
+            # Query to find chunks with matching document_id in metadata
+            query = {
+                "query": {
+                    "term": {
+                        "metadata.document_id.keyword": document_id
                     }
                 }
-                
-                # Delete by query
-                response = self.client.delete_by_query(
-                    index=self.index_name,
-                    body=query
-                )
-                
-                deleted_count = response.get("deleted", 0)
-                total_deleted += deleted_count
-                
-                if deleted_count > 0:
-                    logger.info(f"Deleted {deleted_count} chunks for pattern: {pattern}")
+            }
             
-            if total_deleted > 0:
-                logger.info(f"Successfully deleted {total_deleted} chunks for document ID: {document_id}")
-                return {"deleted": total_deleted, "success": True, "document_id": document_id}
+            # Delete by query
+            response = self.client.delete_by_query(
+                index=self.index_name,
+                body=query
+            )
+            
+            deleted_count = response.get("deleted", 0)
+            
+            if deleted_count > 0:
+                logger.info(f"Successfully deleted {deleted_count} chunks for document ID: {document_id}")
+                return {"deleted": deleted_count, "success": True, "document_id": document_id}
             else:
                 logger.warning(f"No chunks found for document ID: {document_id}")
                 return {"deleted": 0, "success": True, "document_id": document_id, "message": "No chunks found"}
