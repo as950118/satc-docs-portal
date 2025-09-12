@@ -195,12 +195,13 @@ public class DocumentServiceImpl implements DocumentService {
                 String documentId = UUID.randomUUID().toString();
                 String title = removeFileExtension(originalFilename);
                 String extension = getFileExtension(originalFilename);
+                String normalizedTitle = Normalizer.normalize(title, Normalizer.Form.NFC);
                 
                 // 2. 동기 응답 리스트에 추가 (extension과 status 포함)
-                responses.add(new DocumentCreateResponse(documentId, title, false, extension, DocumentStatus.UPLOADING));
+                responses.add(new DocumentCreateResponse(documentId, normalizedTitle, false, extension, DocumentStatus.UPLOADING));
                 
                 // 3. 비동기적으로 실제 파일 처리 (기존 로직 재사용)
-                createDocumentAsync(file, normalizedParentId, documentId, title);
+                createDocumentAsync(file, normalizedParentId, documentId, normalizedTitle);
             }
             
             logger.info("[CREATE DOCUMENTS] Created {} document entries", responses.size());
