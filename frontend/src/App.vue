@@ -1,8 +1,8 @@
 <template>
   <div id="app">
     <el-container style="height: 100vh">
-      <!-- 헤더 -->
-      <el-header class="premium-header" height="80px">
+      <!-- 헤더 (로그인된 경우에만 표시) -->
+      <el-header v-if="isAuthenticated" class="premium-header" height="80px">
         <div class="header-background-pattern"></div>
         <div class="header-glow-overlay"></div>
         <div class="header-content">
@@ -16,16 +16,54 @@
             </div>
           </div>
           <div class="header-actions">
-            <div class="status-indicator">
-              <div class="status-dot"></div>
-              <span class="status-text">온라인</span>
+            <!-- 주요 사이트 링크들 -->
+            <div class="sites-links">
+              <a href="https://www.okestro.com" target="_blank" rel="noopener noreferrer" class="site-link">
+                회사 홈페이지
+              </a>
+              <a href="#" @click.prevent="openVpnSite('jenkins')" class="site-link vpn-link">
+                Jenkins <span class="vpn-text">(VPN)</span>
+              </a>
+              <a href="#" @click.prevent="openVpnSite('argocd')" class="site-link vpn-link">
+                ArgoCD <span class="vpn-text">(VPN)</span>
+              </a>
+              <a href="#" @click.prevent="showCommonCodeMessage" class="site-link vpn-link">
+                공통코드 <span class="vpn-text">(VPN)</span>
+              </a>
+            </div>
+
+            <!-- 사용자 정보 -->
+            <div class="user-info" v-if="userInfo">
+              <el-dropdown @command="handleUserCommand">
+                <span class="user-display">
+                  <el-icon><User /></el-icon>
+                  <span class="username">{{ userInfo.fullName }} 님</span>
+                  <el-icon><ArrowDown /></el-icon>
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <!-- <el-dropdown-item command="profile"> -->
+                      <!-- <el-icon><User /></el-icon> -->
+                      <!-- 프로필 -->
+                    <!-- </el-dropdown-item> -->
+                    <!-- <el-dropdown-item command="settings"> -->
+                      <!-- <el-icon><Setting /></el-icon> -->
+                      <!-- 설정 -->
+                    <!-- </el-dropdown-item> -->
+                    <el-dropdown-item divided command="logout">
+                      <el-icon><SwitchButton /></el-icon>
+                      로그아웃
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </div>
         </div>
       </el-header>
       
       <!-- 메인 컨텐츠 -->
-      <el-container>
+      <el-container :style="{ height: isAuthenticated ? 'calc(100vh - 80px)' : '100vh' }">
         <router-view />
       </el-container>
     </el-container>
@@ -33,18 +71,148 @@
 </template>
 
 <script>
+import { authApiMethods, authUtils } from '@/api/auth'
+import { ArrowDown, Setting, SwitchButton, User } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
 export default {
   name: 'App',
-  methods: {
-    goToHome() {
-      // 현재 경로가 홈이 아닌 경우에만 이동
-      if (this.$route.path !== '/') {
-        this.$router.push('/')
+  components: {
+    User,
+    ArrowDown,
+    Setting,
+    SwitchButton
+  },
+  setup() {
+    const router = useRouter()
+    const route = useRoute()
+    const userInfo = ref(null)
+    const authState = ref(authUtils.isAuthenticated())
+
+    // 인증 상태 확인 (reactive)
+    const isAuthenticated = computed(() => {
+      return authState.value
+    })
+
+    // 인증 상태 업데이트 함수
+    const updateAuthState = () => {
+      authState.value = authUtils.isAuthenticated()
+      if (authState.value) {
+        loadUserInfo()
+      } else {
+        userInfo.value = null
       }
-      // 홈 화면에서 클릭한 경우 페이지 새로고침 효과
-      else {
+    }
+
+    // 사용자 정보 로드
+    const loadUserInfo = () => {
+      userInfo.value = authUtils.getUserInfo()
+    }
+
+    // 홈으로 이동
+    const goToHome = () => {
+      if (route.path !== '/') {
+        router.push('/')
+      } else {
         window.location.reload()
       }
+    }
+
+    // 사용자 메뉴 명령 처리
+    const handleUserCommand = async (command) => {
+      switch (command) {
+        case 'profile':
+          ElMessage.info('프로필 기능은 준비 중입니다.')
+          break
+        case 'settings':
+          ElMessage.info('설정 기능은 준비 중입니다.')
+          break
+        case 'logout':
+          await handleLogout()
+          break
+      }
+    }
+
+    // VPN 사이트 열기
+    const openVpnSite = (siteType) => {
+      const sites = {
+        'jenkins': {
+          url: 'http://172.20.30.230:8080',
+          name: 'Jenkins'
+        },
+        'argocd': {
+          url: 'http://172.20.30.169:32587/login',
+          name: 'ArgoCD'
+        }
+      }
+
+      const site = sites[siteType]
+      if (site) {
+        ElMessage.warning(`${site.name}은(는) VPN 연결이 필요합니다.`)
+        window.open(site.url, '_blank', 'noopener,noreferrer')
+      }
+    }
+
+    // 공통코드 메시지 표시
+    const showCommonCodeMessage = () => {
+      ElMessage.info('연동 예정입니다.')
+    }
+
+    // 로그아웃 처리
+    const handleLogout = async () => {
+      try {
+        // 서버에 로그아웃 요청
+        try {
+          await authApiMethods.logout()
+        } catch (error) {
+          console.warn('서버 로그아웃 요청 실패:', error)
+          // 서버 요청이 실패해도 로컬 로그아웃은 진행
+        }
+
+        // 로컬 인증 정보 제거
+        authUtils.logout()
+        
+        // 인증 상태 업데이트
+        updateAuthState()
+        
+        ElMessage.success('로그아웃되었습니다.')
+        
+        // 로그인 페이지로 이동
+        await router.push('/login')
+      } catch (error) {
+        console.error('로그아웃 처리 중 오류:', error)
+      }
+    }
+
+    // 컴포넌트 마운트 시 인증 상태 및 사용자 정보 로드
+    onMounted(() => {
+      updateAuthState()
+      
+      // 인증 상태 변경 이벤트 리스너 추가
+      window.addEventListener('authStateChange', updateAuthState)
+    })
+
+    // 컴포넌트 언마운트 시 이벤트 리스너 제거
+    onUnmounted(() => {
+      window.removeEventListener('authStateChange', updateAuthState)
+    })
+
+    // 라우트 변경 감지하여 인증 상태 업데이트
+    router.afterEach(() => {
+      updateAuthState()
+    })
+
+    return {
+      isAuthenticated,
+      userInfo,
+      goToHome,
+      handleUserCommand,
+      openVpnSite,
+      showCommonCodeMessage,
+      handleLogout,
+      updateAuthState
     }
   }
 }
@@ -182,6 +350,7 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
+  gap: 20px;
 }
 
 .status-indicator {
@@ -230,6 +399,128 @@ body {
   50% { 
     transform: scale(1.1);
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.8);
+  }
+}
+
+/* 주요 사이트 링크 스타일 */
+.sites-links {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-right: 20px;
+}
+
+.sites-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.site-link {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.site-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  text-decoration: none;
+}
+
+.vpn-text {
+  font-size: 11px;
+  color: rgba(255, 152, 0, 0.9);
+  font-weight: 400;
+}
+
+/* 사용자 정보 스타일 */
+.user-info {
+  margin-right: 10px;
+}
+
+.user-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-display:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.username {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:deep(.el-dropdown-menu) {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 128, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.el-dropdown-menu__item) {
+  color: #333;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:deep(.el-dropdown-menu__item:hover) {
+  background: rgba(0, 0, 128, 0.05);
+  color: #000080;
+}
+
+:deep(.el-dropdown-menu__item.is-divided) {
+  border-top: 1px solid rgba(0, 0, 128, 0.1);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 1200px) {
+  .sites-links {
+    gap: 10px;
+  }
+  
+  .site-link {
+    font-size: 13px;
+    padding: 3px 6px;
+  }
+  
+  .sites-label {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 992px) {
+  .sites-label {
+    display: none;
+  }
+  
+  .sites-links {
+    gap: 8px;
   }
 }
 </style>

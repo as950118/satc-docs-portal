@@ -9,12 +9,12 @@ public class Path {
 
     // Domain
     public static final String DOCS                         =   "/docs";
-    public static final String USERS                        =   "/users";
+    public static final String AUTH                         =   "/auth";
 
 
     // 회원 관리
-    public static final String API_USERS                    =   API_COMMON + USERS;
-    public static final String API_USERS_ID                 =   API_USERS + "/{userId}";
+    public static final String API_AUTH                     =   API_COMMON + AUTH;
+    public static final String API_AUTH_ID                  =   API_AUTH + "/{userId}";
 
 
     // 문서(DOCS)

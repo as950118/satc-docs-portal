@@ -4,8 +4,8 @@
     <div class="tree-header-section">
 
       
-      <!-- 버튼 영역 -->
-      <div class="action-section">
+      <!-- 버튼 영역 (관리자만) -->
+      <div class="action-section" v-if="isAdmin">
       <el-button 
         type="primary" 
           @click="showUploadDialogFunc"
@@ -45,8 +45,8 @@
           </div>
         </div>
         
-        <!-- 두 번째 줄: 상태별 문서 -->
-        <div class="stats-row">
+        <!-- 두 번째 줄: 상태별 문서 (관리자만) -->
+        <div class="stats-row" v-if="isAdmin">
           <div class="stat-box status-uploading" style="background: transparent !important; background-color: transparent !important; background-image: none !important; box-shadow: none !important; border: none !important;">
             <div class="stat-icon-wrapper" style="background: transparent !important; background-color: transparent !important;">
               <el-icon class="stat-status-icon" style="background: transparent !important; background-color: transparent !important;"><Loading /></el-icon>
@@ -107,7 +107,8 @@
               <span v-if="data.extension" class="file-extension">
                 .{{ data.extension.toLowerCase() }}
               </span>
-              <span v-if="data.status" class="status-tag" :class="`status-${data.status.toLowerCase()}`">
+              <!-- 상태 태그 (관리자만) -->
+              <span v-if="data.status && isAdmin" class="status-tag" :class="`status-${data.status.toLowerCase()}`">
                 <el-icon v-if="data.status === 'UPLOADING'" class="status-icon"><Loading /></el-icon>
                 <el-icon v-else-if="data.status === 'INDEXING'" class="status-icon"><View /></el-icon>
                 <el-icon v-else-if="data.status === 'COMPLETE'" class="status-icon"><Check /></el-icon>
@@ -125,7 +126,8 @@
               <span v-else class="no-documents">하위 문서 없음</span>
             </span>
           </div>
-          <div class="node-actions" @click.stop>
+          <!-- 액션 버튼들 (관리자만) -->
+          <div class="node-actions" @click.stop v-if="isAdmin">
             <el-button 
               v-if="data.isFolder"
               type="text" 
@@ -297,6 +299,7 @@
 
 <script>
 import { documentApi } from '@/api'
+import { authUtils } from '@/api/auth'
 import { Check, Delete, Document, Folder, FolderAdd, Loading, Plus, Rank, Upload, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
@@ -320,6 +323,9 @@ export default {
     const treeData = ref([])
     const documentStats = ref(null)
     const loading = ref(false)
+    
+    // 권한 확인
+    const isAdmin = computed(() => authUtils.isAdmin())
     const showUploadDialog = ref(false)
     const showAddFolderDialog = ref(false)
     const showMoveDialog = ref(false)
@@ -1325,6 +1331,7 @@ export default {
       folderList,
       validFileCount,
       availableFolders,
+      isAdmin,
       loadNode,
       handleNodeClick,
       showUploadDialogFunc,
