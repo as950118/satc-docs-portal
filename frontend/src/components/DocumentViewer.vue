@@ -20,7 +20,7 @@
         loop 
         playsinline
       >
-        <source src="/code_background.mp4" type="video/mp4">
+        <source src="/galaxy.mp4" type="video/mp4">
         <!-- 비디오를 지원하지 않는 브라우저를 위한 폴백 -->
         <div class="video-fallback"></div>
       </video>
@@ -85,7 +85,8 @@
           <span v-if="document.extension" class="file-extension">
             .{{ document.extension }}
           </span>
-          <span v-if="document.status" class="status-tag" :class="`status-${document.status.toLowerCase()}`">
+          <!-- 상태 태그 (관리자만) -->
+          <span v-if="document.status && isAdmin" class="status-tag" :class="`status-${document.status.toLowerCase()}`">
             <el-icon v-if="document.status === 'UPLOADING'" class="status-icon"><Loading /></el-icon>
             <el-icon v-else-if="document.status === 'INDEXING'" class="status-icon"><View /></el-icon>
             <el-icon v-else-if="document.status === 'COMPLETE'" class="status-icon"><Check /></el-icon>
@@ -128,7 +129,7 @@
               <Loading />
             </el-icon>
             <p class="loading-text">
-              {{ document?.status === 'UPLOADING' ? '파일을 업로드하고 있습니다...' : '파일을 불러오는 중입니다...' }}
+              {{ (document?.status === 'UPLOADING' && isAdmin) ? '파일을 업로드하고 있습니다...' : '파일을 불러오는 중입니다...' }}
             </p>
           </div>
         </div>
@@ -139,6 +140,7 @@
 
 <script>
 import { documentApi } from '@/api'
+import { authUtils } from '@/api/auth'
 import { ArrowLeft, Check, Loading, Search, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
@@ -161,6 +163,9 @@ export default {
     const fileContent = ref(null)
     const contentLoading = ref(false)
     const contentError = ref('')
+    
+    // 권한 확인
+    const isAdmin = computed(() => authUtils.isAdmin())
 
     // 검색 관련 상태
     const searchQuery = ref('')
@@ -456,6 +461,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
       renderedContent,
       formatDate,
       loadFileContent,
+      isAdmin,
       // 검색 관련
       searchQuery,
       showSearchResults,

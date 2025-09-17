@@ -4,13 +4,46 @@ import 'element-plus/dist/index.css'
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
+import { authUtils } from './api/auth'
 import App from './App.vue'
 import DocumentView from './views/DocumentView.vue'
 import Home from './views/Home.vue'
+import Login from './views/Login.vue'
+
+// 라우트 가드 함수
+const requireAuth = (to, from, next) => {
+  if (authUtils.isAuthenticated()) {
+    next()
+  } else {
+    next('/login')
+  }
+}
+
+const redirectIfAuthenticated = (to, from, next) => {
+  if (authUtils.isAuthenticated()) {
+    next('/')
+  } else {
+    next()
+  }
+}
 
 const routes = [
-  { path: '/', component: Home },
-  { path: '/document/:id', component: DocumentView, props: true }
+  { 
+    path: '/login', 
+    component: Login,
+    beforeEnter: redirectIfAuthenticated
+  },
+  { 
+    path: '/', 
+    component: Home,
+    beforeEnter: requireAuth
+  },
+  { 
+    path: '/document/:id', 
+    component: DocumentView, 
+    props: true,
+    beforeEnter: requireAuth
+  }
 ]
 
 const router = createRouter({

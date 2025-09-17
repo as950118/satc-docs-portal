@@ -1,5 +1,5 @@
 <template>
-  <el-container style="height: calc(100vh - 80px)">
+  <el-container style="height: 100%">
     <!-- 사이드바 (문서 트리) -->
     <el-aside width="480px" style="background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%); padding: 0; border-right: 1px solid rgba(0, 0, 128, 0.1); box-shadow: 4px 0 20px rgba(0, 0, 128, 0.08); position: relative; overflow: hidden;">
       <DocumentTree
