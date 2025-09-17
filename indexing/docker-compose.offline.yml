@@ -60,7 +60,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_SECURE=false
-      - MINIO_BUCKET_NAME=documents
+      - MINIO_BUCKET_NAME=cmp-docs
       - ELASTICSEARCH_HOST=elasticsearch
       - ELASTICSEARCH_PORT=9200
       - ELASTICSEARCH_INDEX=document_chunks

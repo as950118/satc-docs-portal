@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     minio_access_key: str = Field(default="minioadmin", env="MINIO_ACCESS_KEY")
     minio_secret_key: str = Field(default="minioadmin", env="MINIO_SECRET_KEY")
     minio_secure: bool = Field(default=False, env="MINIO_SECURE")
-    minio_bucket_name: str = Field(default="documents", env="MINIO_BUCKET_NAME")
+    minio_bucket_name: str = Field(default="cmp-docs", env="MINIO_BUCKET_NAME")
     
     # Elasticsearch Configuration
     elasticsearch_host: str = Field(default="localhost", env="ELASTICSEARCH_HOST")

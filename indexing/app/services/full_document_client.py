@@ -223,8 +223,8 @@ class FullDocumentClient:
                     "multi_match": {
                         "query": query,
                         "fields": [
-                            "title^3",
-                            "title.mixed^2", 
+                            "title^10",
+                            "title.mixed^5", 
                             "content^2",
                             "content.mixed",
                             "content.code"
