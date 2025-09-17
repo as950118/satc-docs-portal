@@ -50,4 +50,6 @@ Thumbs.db
 
 .gradle/
 build/
+bin/
+out/
 .vscode/
