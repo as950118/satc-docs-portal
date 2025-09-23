@@ -15,6 +15,7 @@ NC='\033[0m' # No Color
 IMAGE_NAME="docs-front"
 TAG="latest"
 REGISTRY=""
+PLATFORM="linux/amd64"
 
 # 함수 정의
 print_info() {
@@ -44,6 +45,8 @@ show_help() {
     echo "  -p, --push            빌드 후 레지스트리에 푸시"
     echo "  -d, --dev             개발 환경 이미지 빌드"
     echo "  -c, --clean           빌드 전 기존 이미지 정리"
+    echo "  --platform PLATFORM   플랫폼 지정 (기본값: linux/amd64)"
+    echo "  -e, --export          이미지를 tar.gz 파일로 내보내기"
     echo "  -h, --help            도움말 표시"
     echo ""
     echo "예시:"
@@ -51,12 +54,15 @@ show_help() {
     echo "  $0 -n myapp -t v1.0.0          # 커스텀 이름과 태그로 빌드"
     echo "  $0 -r registry.example.com -p  # 레지스트리에 푸시"
     echo "  $0 -d                          # 개발 환경 이미지 빌드"
+    echo "  $0 -e                          # 이미지를 tar.gz 파일로 내보내기"
+    echo "  $0 --platform linux/arm64 -e  # ARM64용 이미지 빌드 및 내보내기"
 }
 
 # 인자 파싱
 PUSH=false
 DEV=false
 CLEAN=false
+EXPORT=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -84,6 +90,14 @@ while [[ $# -gt 0 ]]; do
             CLEAN=true
             shift
             ;;
+        --platform)
+            PLATFORM="$2"
+            shift 2
+            ;;
+        -e|--export)
+            EXPORT=true
+            shift
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -105,6 +119,7 @@ fi
 
 print_info "컨테이너 이미지 빌드 시작"
 print_info "이미지 이름: $FULL_IMAGE_NAME"
+print_info "플랫폼: $PLATFORM"
 
 # 기존 이미지 정리
 if [ "$CLEAN" = true ]; then
@@ -115,10 +130,10 @@ fi
 # Docker 빌드
 if [ "$DEV" = true ]; then
     print_info "개발 환경 이미지 빌드 중..."
-    docker build -f Dockerfile.dev -t "$FULL_IMAGE_NAME" .
+    docker build --platform "$PLATFORM" -f Dockerfile.dev -t "$FULL_IMAGE_NAME" .
 else
     print_info "프로덕션 이미지 빌드 중..."
-    docker build -t "$FULL_IMAGE_NAME" .
+    docker build --platform "$PLATFORM" -t "$FULL_IMAGE_NAME" .
 fi
 
 if [ $? -eq 0 ]; then
@@ -146,6 +161,30 @@ if [ "$PUSH" = true ]; then
         print_success "푸시 완료: $FULL_IMAGE_NAME"
     else
         print_error "푸시 실패"
+        exit 1
+    fi
+fi
+
+# 이미지를 tar.gz 파일로 내보내기
+if [ "$EXPORT" = true ]; then
+    EXPORT_FILE="${IMAGE_NAME}-${TAG}.tar.gz"
+    print_info "이미지를 tar.gz 파일로 내보내는 중: $EXPORT_FILE"
+    
+    # Docker save로 tar 파일 생성 후 gzip으로 압축
+    docker save "$FULL_IMAGE_NAME" | gzip > "$EXPORT_FILE"
+    
+    if [ $? -eq 0 ]; then
+        print_success "이미지 내보내기 완료: $EXPORT_FILE"
+        
+        # 파일 크기 정보 출력
+        if command -v ls >/dev/null 2>&1; then
+            FILE_SIZE=$(ls -lh "$EXPORT_FILE" | awk '{print $5}')
+            print_info "압축된 파일 크기: $FILE_SIZE"
+        fi
+        
+        print_info "이미지 로드 방법: docker load < $EXPORT_FILE"
+    else
+        print_error "이미지 내보내기 실패"
         exit 1
     fi
 fi

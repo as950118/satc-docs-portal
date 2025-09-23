@@ -2,7 +2,8 @@ import axios from 'axios'
 
 // 인증 API 클라이언트 설정
 const authApi = axios.create({
-  baseURL: 'http://127.0.0.1:8080/api/v1/auth',
+  // baseURL: 'http://127.0.0.1:8080/api/v1/auth', // Local
+  baseURL: 'http://15.164.158.85:8080/api/v1/auth',  // AWS
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

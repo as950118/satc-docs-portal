@@ -116,10 +116,10 @@
           <span class="info-label">문서 ID:</span>
           <span>{{ document.id }}</span>
         </div>
-        <div class="info-row">
-          <span class="info-label">마지막 수정:</span>
-          <span>{{ formatDate(document.lastModified || new Date()) }}</span>
-            </div>
+        <!-- <div class="info-row"> -->
+          <!-- <span class="info-label">마지막 수정:</span> -->
+          <!-- <span>{{ formatDate(document.lastModified || new Date()) }}</span> -->
+            <!-- </div> -->
           </div>
         </div>
         

@@ -27,7 +27,7 @@
               <a href="#" @click.prevent="openVpnSite('argocd')" class="site-link vpn-link">
                 ArgoCD <span class="vpn-text">(VPN)</span>
               </a>
-              <a href="#" @click.prevent="showCommonCodeMessage" class="site-link vpn-link">
+              <a href="#" @click.prevent="openVpnSite('common-code')" class="site-link vpn-link">
                 공통코드 <span class="vpn-text">(VPN)</span>
               </a>
             </div>
@@ -145,12 +145,16 @@ export default {
         'argocd': {
           url: 'http://172.20.30.169:32587/login',
           name: 'ArgoCD'
+        },
+        'common-code': {
+          url: 'http://172.20.30.63:3000/',
+          name: '공통 코드 관리 시스템'
         }
       }
 
       const site = sites[siteType]
       if (site) {
-        ElMessage.warning(`${site.name}은(는) VPN 연결이 필요합니다.`)
+        ElMessage.info(`새 창에서 ${site.name}을(를) 열었습니다.`)
         window.open(site.url, '_blank', 'noopener,noreferrer')
       }
     }
