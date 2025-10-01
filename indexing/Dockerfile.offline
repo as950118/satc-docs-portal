@@ -1,6 +1,6 @@
-# Multi-stage build for offline deployment (AMD64 architecture)
+# Multi-stage build for offline deployment
 # Stage 1: Download dependencies
-FROM --platform=linux/amd64 python:3.11-slim as dependency-downloader
+FROM python:3.11-slim as dependency-downloader
 
 WORKDIR /tmp
 
@@ -17,7 +17,7 @@ RUN pip download -r requirements.txt -d /tmp/wheels
 RUN pip download pip setuptools wheel -d /tmp/wheels
 
 # Stage 2: Create final image with all dependencies included
-FROM --platform=linux/amd64 python:3.11-slim
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
