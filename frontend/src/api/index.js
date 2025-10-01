@@ -5,7 +5,8 @@ import { minioUtils } from '@/utils/minioClient'
 // API 클라이언트 설정
 const api = axios.create({
   // baseURL: 'http://127.0.0.1:8080/api/v1', // Local
-  baseURL: 'http://15.164.158.85:8080/api/v1',  // AWS
+  // baseURL: 'http://15.164.158.85:8080/api/v1',  // AWS
+  baseURL: 'http://172.16.0.40:8080/api/v1',  // 사내 환경
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
