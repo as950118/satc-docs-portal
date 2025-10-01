@@ -1,7 +1,8 @@
 // MinIO 설정 (브라우저 환경에서는 직접 HTTP 요청 사용)
 const MINIO_CONFIG = {
   // endPoint: '127.0.0.1', // LOCAL
-  endPoint: '15.164.158.85', // AWS
+  // endPoint: '15.164.158.85', // AWS
+  endPoint: '172.16.0.40',  // 사내 환경
   port: 9000,
   useSSL: false,
   bucketName: 'cmp-docs'
