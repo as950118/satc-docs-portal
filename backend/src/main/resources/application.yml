@@ -29,3 +29,7 @@ external:
     port: 8000
     enabled: true
     
+docs:
+  sync:
+    # 코드 → 문서 동기화 토큰 (ARCH-0001). 비어 있으면 PUT /api/v1/docs/sync 비활성
+    token: ${DOCS_SYNC_TOKEN:}

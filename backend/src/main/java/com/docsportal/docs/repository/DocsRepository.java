@@ -1,6 +1,7 @@
 package com.docsportal.docs.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -11,6 +12,9 @@ import com.docsportal.docs.persistence.DocumentEntity;
 
 @Repository
 public interface DocsRepository extends JpaRepository<DocumentEntity, String> {
+
+    // 동기화 소스 키로 조회 (삭제 여부 무관 — sourceKey 는 unique)
+    Optional<DocumentEntity> findBySourceKey(String sourceKey);
     
     // 특정 부모의 직접적인 자식들 조회 (삭제되지 않은 것만)
     // 정렬: 1) 폴더 우선 (isFolder DESC), 2) 이름 순 (title ASC)

@@ -1,10 +1,13 @@
 package com.docsportal.docs.persistence;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
+import java.time.Instant;
 
 @Entity
 @Table(name = "document")
@@ -21,6 +24,20 @@ public class DocumentEntity extends BaseEntity {
     
     @Enumerated(EnumType.STRING)
     private DocumentStatus status;
+
+    // === 코드 → 문서 자동 동기화 메타데이터 (ARCH-0001). 수동 업로드 문서는 모두 null ===
+    @Column(name = "source_key", unique = true)
+    private String sourceKey;
+    @Column(name = "source_repo")
+    private String sourceRepo;
+    @Column(name = "source_path")
+    private String sourcePath;
+    @Column(name = "source_commit", length = 40)
+    private String sourceCommit;
+    @Column(name = "content_hash", length = 64)
+    private String contentHash;
+    @Column(name = "synced_at")
+    private Instant syncedAt;
 
     public DocumentEntity() {
     }
@@ -96,6 +113,55 @@ public class DocumentEntity extends BaseEntity {
      */
     public void updateStatus(DocumentStatus status) {
         this.status = status;
+    }
+
+    /**
+     * 동기화 소스 연결 (최초 생성 시)
+     */
+    public void attachSource(String sourceKey, String sourceRepo, String sourcePath) {
+        this.sourceKey = sourceKey;
+        this.sourceRepo = sourceRepo;
+        this.sourcePath = sourcePath;
+    }
+
+    /**
+     * 동기화 결과 반영 (커밋/해시/시각)
+     */
+    public void markSynced(String sourceCommit, String contentHash, Instant syncedAt) {
+        this.sourceCommit = sourceCommit;
+        this.contentHash = contentHash;
+        this.syncedAt = syncedAt;
+    }
+
+    /**
+     * 삭제된 동기화 문서의 sourceKey 를 해제해 같은 소스로 새 문서를 만들 수 있게 한다 (unique 제약)
+     */
+    public void releaseSourceKey() {
+        this.sourceKey = null;
+    }
+
+    public String getSourceKey() {
+        return sourceKey;
+    }
+
+    public String getSourceRepo() {
+        return sourceRepo;
+    }
+
+    public String getSourcePath() {
+        return sourcePath;
+    }
+
+    public String getSourceCommit() {
+        return sourceCommit;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public Instant getSyncedAt() {
+        return syncedAt;
     }
     
     /**

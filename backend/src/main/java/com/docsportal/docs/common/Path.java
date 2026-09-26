@@ -33,5 +33,6 @@ public class Path {
     public static final String API_DOCS_SEARCH              =   API_DOCS + "/search";
     public static final String API_DOCS_STATISTICS          =   API_DOCS + "/statistics";
     public static final String API_DOCS_FOLDERS             =   API_DOCS + "/folders";
+    public static final String API_DOCS_SYNC                =   API_DOCS + "/sync";
 
 }

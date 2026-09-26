@@ -582,4 +582,12 @@ public class ExternalServiceImpl implements ExternalService {
                 deletedFileNames, e.getMessage(), e);
         }
     }
+
+    @Override
+    @Async("fileUploadExecutor")
+    public void reindexDocument(String bucketName, String documentFileName, String objectName) {
+        // self-invocation 이므로 아래 두 호출은 @Async 프록시를 거치지 않고 이 스레드에서 순서대로 실행된다
+        notifyDocumentsDeleted(List.of(documentFileName));
+        notifyDocumentUploaded(bucketName, objectName);
+    }
 }
