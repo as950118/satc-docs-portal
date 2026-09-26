@@ -11,11 +11,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.docsportal.docs.common.RestResponse;
@@ -28,8 +30,12 @@ import com.docsportal.docs.service.DocumentDriftService.DocumentContent;
 
 /**
  * 문서-코드 드리프트 감지 (ARCH-0003)
+ *
+ * CORS: 이 프로젝트는 전역 CorsConfigurationSource 빈이 MVC에 연결되어 있지 않아
+ * 기존 컨트롤러와 같이 @CrossOrigin 으로 선언한다 (프론트 배지가 GET /drift 를 호출).
  */
 @RestController
+@CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS})
 public class DocumentDriftController {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentDriftController.class);
