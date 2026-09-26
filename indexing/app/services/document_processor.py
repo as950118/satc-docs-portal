@@ -148,10 +148,16 @@ def update_document_status(object_name: str, status: str = "COMPLETE") -> bool:
         
         logger.info(f"Calling status update API for document {document_id} with status {status}")
         
+        headers = {"Content-Type": "application/json"}
+        if settings.backend_internal_token:
+            headers["X-Docs-Internal-Token"] = settings.backend_internal_token
+        else:
+            logger.warning("BACKEND_INTERNAL_TOKEN 미설정 — 백엔드 인증이 켜져 있으면 상태 콜백이 401로 실패합니다")
+
         response = requests.post(
             api_url, 
             json=payload, 
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             timeout=10  # 10초 타임아웃
         )
         

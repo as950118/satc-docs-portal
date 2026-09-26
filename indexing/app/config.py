@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # Backend API Configuration
     backend_api_host: str = Field(default="localhost", env="BACKEND_API_HOST")
     backend_api_port: int = Field(default=8080, env="BACKEND_API_PORT")
+    # 상태 콜백(POST /api/v1/docs/status) 인증 토큰 — 백엔드 DOCS_INTERNAL_TOKEN 과 같은 값 (ADR-0005)
+    backend_internal_token: str = Field(default="", env="BACKEND_INTERNAL_TOKEN")
     
     class Config:
         env_file = ".env"

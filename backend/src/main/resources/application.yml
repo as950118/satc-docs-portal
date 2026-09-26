@@ -33,3 +33,13 @@ docs:
   sync:
     # 코드 → 문서 동기화 토큰 (ARCH-0001). 비어 있으면 PUT /api/v1/docs/sync 비활성
     token: ${DOCS_SYNC_TOKEN:}
+  internal:
+    # 인덱싱 서비스 → POST /api/v1/docs/status 콜백 토큰 (ADR-0005). 인덱싱 서비스의 BACKEND_INTERNAL_TOKEN 과 같은 값
+    token: ${DOCS_INTERNAL_TOKEN:}
+  auth:
+    # 문서 API 인증 (ADR-0005). 긴급 롤백 시 false
+    enabled: ${DOCS_AUTH_ENABLED:true}
+
+auth:
+  session:
+    ttl-hours: ${AUTH_SESSION_TTL_HOURS:12}

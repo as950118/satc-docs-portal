@@ -1,11 +1,19 @@
 package com.docsportal.docs.service;
 
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.docsportal.docs.format.request.LoginRequest;
@@ -27,8 +35,52 @@ public class AuthServiceImpl implements AuthService {
         "cmp-satc", new UserData("cmp-satc", "satc123", "satc@okestro.com", "CMP SATC", Arrays.asList("ADMIN","USER"))
     );
     
-    // 현재 로그인한 사용자 저장 (세션 대신 간단한 메모리 저장)
-    private final Map<String, String> loggedInUsers = new ConcurrentHashMap<>();
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    // 현재 로그인한 사용자 저장 (세션 대신 간단한 메모리 저장). token → 세션
+    private final Map<String, Session> loggedInUsers = new ConcurrentHashMap<>();
+    private final Duration sessionTtl;
+    private final Clock clock;
+
+    @Autowired
+    public AuthServiceImpl(@Value("${auth.session.ttl-hours:12}") long ttlHours) {
+        this(Duration.ofHours(ttlHours), Clock.systemUTC());
+    }
+
+    AuthServiceImpl(Duration sessionTtl, Clock clock) {
+        this.sessionTtl = sessionTtl;
+        this.clock = clock;
+    }
+
+    private record Session(String username, Instant expiresAt) {
+    }
+
+    /**
+     * 추측 불가능한 세션 토큰 (256bit). 기존 "session_{user}_{time}" 형식은 추측 가능했음 (ADR-0005)
+     */
+    private static String newToken() {
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * 만료되지 않은 세션의 사용자명. 만료 세션은 제거한다
+     */
+    private String activeUsername(String token) {
+        if (token == null) {
+            return null;
+        }
+        Session session = loggedInUsers.get(token);
+        if (session == null) {
+            return null;
+        }
+        if (!clock.instant().isBefore(session.expiresAt())) {
+            loggedInUsers.remove(token);
+            return null;
+        }
+        return session.username();
+    }
     
     @Override
     public LoginResponse login(LoginRequest request) {
@@ -39,11 +91,10 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("사용자명 또는 비밀번호가 올바르지 않습니다.");
         }
         
-        // 간단한 세션 ID 생성 (테스트용)
-        String sessionId = "session_" + user.username + "_" + System.currentTimeMillis();
-        
+        String sessionId = newToken();
+
         // 로그인 사용자 저장
-        loggedInUsers.put(sessionId, user.username);
+        loggedInUsers.put(sessionId, new Session(user.username, clock.instant().plus(sessionTtl)));
         
         // 사용자 정보 생성
         UserInfoResponse userInfo = new UserInfoResponse(
@@ -56,7 +107,7 @@ public class AuthServiceImpl implements AuthService {
             LocalDateTime.now().minusDays(30) // 가상의 생성 날짜
         );
         
-        return new LoginResponse(sessionId, userInfo, 0L); // 만료시간 없음
+        return new LoginResponse(sessionId, userInfo, sessionTtl.toSeconds());
     }
     
     @Override
@@ -66,7 +117,7 @@ public class AuthServiceImpl implements AuthService {
     
     @Override
     public LoginResponse refreshToken(String sessionId) {
-        String username = loggedInUsers.get(sessionId);
+        String username = activeUsername(sessionId);
         
         if (username == null) {
             throw new IllegalArgumentException("유효하지 않은 세션입니다.");
@@ -84,12 +135,15 @@ public class AuthServiceImpl implements AuthService {
             LocalDateTime.now().minusDays(30)
         );
         
-        return new LoginResponse(sessionId, userInfo, 0L); // 만료시간 없음
+        Session session = loggedInUsers.get(sessionId);
+        long remaining = session == null ? 0L
+            : Math.max(0L, Duration.between(clock.instant(), session.expiresAt()).toSeconds());
+        return new LoginResponse(sessionId, userInfo, remaining);
     }
     
     @Override
     public UserInfoResponse getCurrentUser(String sessionId) {
-        String username = loggedInUsers.get(sessionId);
+        String username = activeUsername(sessionId);
         
         if (username == null) {
             throw new IllegalArgumentException("유효하지 않은 세션입니다.");
@@ -110,12 +164,22 @@ public class AuthServiceImpl implements AuthService {
     
     @Override
     public boolean validateToken(String sessionId) {
-        return loggedInUsers.containsKey(sessionId);
+        return activeUsername(sessionId) != null;
+    }
+
+    @Override
+    public Optional<AuthenticatedUser> authenticate(String token) {
+        String username = activeUsername(token);
+        if (username == null) {
+            return Optional.empty();
+        }
+        UserData user = USERS.get(username);
+        return user == null ? Optional.empty() : Optional.of(new AuthenticatedUser(user.username, user.roles));
     }
     
     @Override
     public void changePassword(String sessionId, PasswordChangeRequest request) {
-        String username = loggedInUsers.get(sessionId);
+        String username = activeUsername(sessionId);
         
         if (username == null) {
             throw new IllegalArgumentException("유효하지 않은 세션입니다.");

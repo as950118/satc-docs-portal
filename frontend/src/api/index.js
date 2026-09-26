@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import { authUtils } from './auth'
 // MinIO 유틸리티 import (브라우저 친화적)
 import { minioUtils } from '@/utils/minioClient'
 
@@ -16,7 +18,11 @@ const api = axios.create({
 // 요청 인터셉터
 api.interceptors.request.use(
   (config) => {
-    // 요청 전 처리 (예: 토큰 추가)
+    // 문서 API 는 로그인 세션이 필요하다 (ADR-0005)
+    const sessionId = authUtils.getSessionId()
+    if (sessionId) {
+      config.headers.Authorization = `Bearer ${sessionId}`
+    }
     console.log('API 요청:', config.method?.toUpperCase(), config.url)
     return config
   },
@@ -33,6 +39,16 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('API 에러:', error.response?.status, error.config?.url, error.message)
+
+    if (error.response?.status === 401) {
+      // 세션 만료/미로그인 → 로그인 화면으로 (auth.js 인터셉터와 동일한 처리)
+      authUtils.logout()
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    } else if (error.response?.status === 403) {
+      ElMessage.error(error.response?.data?.errorMessage || '권한이 없습니다.')
+    }
     return Promise.reject(error)
   }
 )

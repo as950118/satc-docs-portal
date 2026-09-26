@@ -31,6 +31,11 @@ public interface AuthService {
      * 토큰 유효성 검증
      */
     boolean validateToken(String token);
+
+    /**
+     * 세션 토큰으로 사용자 확인 (만료·미존재 시 empty)
+     */
+    java.util.Optional<AuthenticatedUser> authenticate(String token);
     
     /**
      * 비밀번호 변경
