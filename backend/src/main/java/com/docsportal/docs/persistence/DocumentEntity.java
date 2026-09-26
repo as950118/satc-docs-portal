@@ -39,6 +39,19 @@ public class DocumentEntity extends BaseEntity {
     @Column(name = "synced_at")
     private Instant syncedAt;
 
+    // === 문서-코드 드리프트 검사 결과 (ARCH-0003) ===
+    @Enumerated(EnumType.STRING)
+    @Column(name = "drift_status")
+    private DriftStatus driftStatus;
+    @Column(name = "drift_checked_at")
+    private Instant driftCheckedAt;
+    @Column(name = "drift_source_key")
+    private String driftSourceKey;
+    @Column(name = "drift_commit", length = 40)
+    private String driftCommit;
+    @Column(name = "drift_detail", columnDefinition = "text")
+    private String driftDetail;
+
     public DocumentEntity() {
     }
 
@@ -138,6 +151,37 @@ public class DocumentEntity extends BaseEntity {
      */
     public void releaseSourceKey() {
         this.sourceKey = null;
+    }
+
+    /**
+     * 드리프트 검사 결과 반영
+     */
+    public void recordDrift(DriftStatus status, Instant checkedAt, String sourceKey, String commit, String detailJson) {
+        this.driftStatus = status;
+        this.driftCheckedAt = checkedAt;
+        this.driftSourceKey = sourceKey;
+        this.driftCommit = commit;
+        this.driftDetail = detailJson;
+    }
+
+    public DriftStatus getDriftStatus() {
+        return driftStatus;
+    }
+
+    public Instant getDriftCheckedAt() {
+        return driftCheckedAt;
+    }
+
+    public String getDriftSourceKey() {
+        return driftSourceKey;
+    }
+
+    public String getDriftCommit() {
+        return driftCommit;
+    }
+
+    public String getDriftDetail() {
+        return driftDetail;
     }
 
     public String getSourceKey() {

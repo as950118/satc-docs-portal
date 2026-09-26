@@ -27,6 +27,7 @@ import com.docsportal.docs.format.request.DocumentSyncRequest;
 import com.docsportal.docs.format.response.DocumentSyncResponse;
 import com.docsportal.docs.persistence.DocumentEntity;
 import com.docsportal.docs.persistence.DocumentStatus;
+import com.docsportal.docs.persistence.DriftStatus;
 import com.docsportal.docs.repository.DocsRepository;
 
 import io.minio.MinioClient;
@@ -93,6 +94,7 @@ class DocumentSyncServiceImplTest {
         assertThat(entity.getSourceKey()).isEqualTo(KEY);
         assertThat(entity.getSourceCommit()).isEqualTo("c1");
         assertThat(entity.getSyncedAt()).isEqualTo(NOW);
+        assertThat(entity.getDriftStatus()).isEqualTo(DriftStatus.IN_SYNC);
         assertThat(entity.getFilePath()).isEqualTo("documents/" + entity.getId() + "/r-backend-java-openapi.yaml");
         verify(externalService).notifyDocumentUploaded("docs", entity.getFilePath());
     }

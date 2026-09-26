@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.docsportal.docs.common.RestResponse;
+import com.docsportal.docs.common.SyncTokenVerifier;
 import com.docsportal.docs.format.response.DocumentSyncResponse;
 import com.docsportal.docs.format.response.DocumentSyncResponse.Result;
 import com.docsportal.docs.persistence.DocumentStatus;
@@ -27,7 +28,7 @@ class DocumentSyncControllerTest {
     private final MockMultipartFile file = new MockMultipartFile("file", "a.yaml", "application/x-yaml", "x".getBytes());
 
     private ResponseEntity<RestResponse<DocumentSyncResponse>> call(String configuredToken, String headerToken) {
-        return new DocumentSyncController(service, configuredToken)
+        return new DocumentSyncController(service, new SyncTokenVerifier(configuredToken))
             .sync(headerToken, file, "o/r:.#java", "o/r", ".", "c1", "h", null);
     }
 

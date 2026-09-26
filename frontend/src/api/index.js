@@ -136,6 +136,9 @@ export const documentApi = {
   
   // 문서 통계 조회
   getDocumentStatistics: () => api.get('/docs/statistics'),
+
+  // 문서-코드 드리프트 상태 조회 (ARCH-0003)
+  getDocumentDrift: (docId) => api.get(`/docs/${docId}/drift`),
   
   // 문서 검색
   searchDocuments: (query) => {

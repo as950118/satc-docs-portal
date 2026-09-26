@@ -99,6 +99,9 @@
         </div>
       </div>
 
+      <!-- 문서-코드 드리프트 배지 (ARCH-0003) -->
+      <DocumentDriftBadge :document-id="document.id" />
+
       <!-- 문서 내용 - 스크롤 영역 -->
       <div class="document-body">
         <!-- 에러 메시지는 더 이상 표시하지 않음 - 모든 상황을 컨텐츠로 처리 -->
@@ -145,11 +148,13 @@ import { ArrowLeft, Check, Loading, Search, View } from '@element-plus/icons-vue
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
 import { computed, ref, watch } from 'vue'
+import DocumentDriftBadge from './DocumentDriftBadge.vue'
 import SearchResults from './SearchResults.vue'
 
 export default {
   name: 'DocumentViewer',
   components: {
+    DocumentDriftBadge,
     SearchResults
   },
   props: {

@@ -24,6 +24,7 @@ import com.docsportal.docs.format.response.DocumentSyncResponse;
 import com.docsportal.docs.format.response.DocumentSyncResponse.Result;
 import com.docsportal.docs.persistence.DocumentEntity;
 import com.docsportal.docs.persistence.DocumentStatus;
+import com.docsportal.docs.persistence.DriftStatus;
 import com.docsportal.docs.repository.DocsRepository;
 
 import io.minio.MinioClient;
@@ -82,7 +83,7 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
 
         DocumentEntity document = found.get();
         if (request.contentHash().equals(document.getContentHash())) {
-            document.markSynced(request.sourceCommit(), request.contentHash(), now);
+            markSynced(document, request, now);
             docsRepository.save(document);
             logger.info("[SYNC] Unchanged: {} ({})", request.sourceKey(), document.getId());
             return new DocumentSyncResponse(document.getId(), Result.UNCHANGED, document.getStatus());
@@ -90,7 +91,7 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
 
         // 같은 경로에 덮어쓴다 — putObject 실패 시 기존 객체·엔티티는 그대로 남는다
         putObject(document.getFilePath(), request);
-        document.markSynced(request.sourceCommit(), request.contentHash(), now);
+        markSynced(document, request, now);
         document.updateStatus(DocumentStatus.INDEXING);
         docsRepository.save(document);
 
@@ -123,12 +124,20 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
             .status(DocumentStatus.INDEXING)
             .build();
         document.attachSource(request.sourceKey(), request.sourceRepo(), request.sourcePath());
-        document.markSynced(request.sourceCommit(), request.contentHash(), now);
+        markSynced(document, request, now);
         docsRepository.save(document);
 
         externalService.notifyDocumentUploaded(bucketName, filePath);
         logger.info("[SYNC] Created: {} ({})", request.sourceKey(), documentId);
         return new DocumentSyncResponse(documentId, Result.CREATED, DocumentStatus.INDEXING);
+    }
+
+    /**
+     * 코드에서 생성된 문서이므로 드리프트 상태는 항상 IN_SYNC (ARCH-0003)
+     */
+    private static void markSynced(DocumentEntity document, DocumentSyncRequest request, Instant now) {
+        document.markSynced(request.sourceCommit(), request.contentHash(), now);
+        document.recordDrift(DriftStatus.IN_SYNC, now, request.sourceKey(), request.sourceCommit(), null);
     }
 
     private void putObject(String filePath, DocumentSyncRequest request) {
