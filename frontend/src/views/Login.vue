@@ -18,9 +18,9 @@
       <div class="login-form">
         <!-- 로고 및 타이틀 -->
         <div class="login-header">
-          <img src="/okestro_logo_white.png" alt="Okestro Logo" class="login-logo" />
-          <h1 class="login-title">CMP 문서 관리 시스템</h1>
-          <p class="login-subtitle">CMP Document Management System</p>
+          <img src="/logo.svg" alt="Logo" class="login-logo" />
+          <h1 class="login-title">문서 관리 시스템</h1>
+          <p class="login-subtitle">Document Management System</p>
         </div>
         
         <!-- 로그인 폼 -->

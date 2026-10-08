@@ -170,7 +170,7 @@ docker run -p 80:80 \
   -e VITE_API_BASE_URL=http://your-api-server:8080/api \
   -e VITE_MINIO_ENDPOINT=your-minio-server \
   -e VITE_MINIO_PORT=9000 \
-  -e VITE_MINIO_BUCKET_NAME=cmp-docs \
+  -e VITE_MINIO_BUCKET_NAME=docs \
   docs-front
 ```
 

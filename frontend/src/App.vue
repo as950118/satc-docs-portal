@@ -8,19 +8,16 @@
         <div class="header-content">
           <div class="logo-title-area" @click="goToHome">
             <div class="logo-container">
-              <img src="/okestro_logo_white.png" alt="Okestro Logo" class="logo-image" />
+              <img src="/logo.svg" alt="Logo" class="logo-image" />
             </div>
             <div class="title-container">
-              <h1 class="main-title">CMP 문서 관리 시스템</h1>
-              <span class="title-subtitle">CMP Document Management System</span>
+              <h1 class="main-title">문서 관리 시스템</h1>
+              <span class="title-subtitle">Document Management System</span>
             </div>
           </div>
           <div class="header-actions">
             <!-- 주요 사이트 링크들 -->
             <div class="sites-links">
-              <a href="https://www.okestro.com" target="_blank" rel="noopener noreferrer" class="site-link">
-                회사 홈페이지
-              </a>
               <a href="#" @click.prevent="openVpnSite('jenkins')" class="site-link vpn-link">
                 Jenkins <span class="vpn-text">(VPN)</span>
               </a>

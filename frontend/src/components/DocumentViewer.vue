@@ -33,7 +33,7 @@
         <div class="hero-section">
           <div class="hero-text">
             <h1 class="main-title">
-              <span class="title-line highlight">CMP 문서 관리 시스템</span>
+              <span class="title-line highlight">문서 관리 시스템</span>
             </h1>
             <p class="subtitle">
               필요한 개발 문서를 빠르고, 편리하게 찾아보세요.<br>
