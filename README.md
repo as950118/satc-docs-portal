@@ -1,7 +1,7 @@
 # 🤖 satc-docs-portal
 
 ## 📘 About
-[SATC(Standard for AI Tools Commando)](https://okestro.atlassian.net/wiki/x/JAEff)에서 개발하는 MCP Server의 문서 데이터 기반을 관리하는 포탈입니다.  
+SATC(Standard for AI Tools Commando)에서 개발하는 MCP Server의 문서 데이터 기반을 관리하는 포탈입니다.  
 참고 문서 최신화, 문서 관리 포인트 일원화를 통한 개발 생산성 제고 및 편의성 증대를 목표로 합니다.  
 **[참고] 위 프로젝트는 Cursor IDE를 활용한 Vibe Coding 기반으로 개발하였습니다.**
 
@@ -48,7 +48,7 @@
 | 3  |  docs-indexing  | 8080 | 문서 Indexing Server | |
 | 4  |  elasticsearch  | 9200/9300   | Chunk 및 문서 적재, 검색 Engine |  |
 | 5  |  minio   | 9000/9001 | 실제 문서 관리 Object Storage | [MinIO UI](http://localhost:9001), id: minioadmin / pw: minioadmin|
-| 6  |  postgres  |  5432   | 문서 메타데이터 관리 DB | id: postgres / pw: okestro2018|
+| 6  |  postgres  |  5432   | 문서 메타데이터 관리 DB | id: postgres / pw: postgres|
 
 ---
 ## 🚀  Getting Started
@@ -81,7 +81,7 @@ docker compose up {service-name} -d
   - 아래 6개 Container가 정상 실행 중인 상태  
     ![Container Check](./assets/container_check.png)
 
-- [CMP 문서관리포탈](http://localhost:3000) 접속 확인
+- [문서관리포탈](http://localhost:3000) 접속 확인
 
 <br/>
 
@@ -114,6 +114,6 @@ docker compose down {service-name} -v --rmi all
 ## 📄 README Version Management
 | 순번 |  작성일자  |   작성자   |           작성 내용            |               비고               |
 |:--:|:----:|:--------:|:--------------------------:|:-------------------------------:|
-| 1  | 25.09.10 | [신준](mailto:j.shin@okestro.com) | 개요, 기술, Getting Started, License 등 | 초안 |
+| 1  | 25.09.10 | [신준](mailto:j.shin@example.com) | 개요, 기술, Getting Started, License 등 | 초안 |
 | 2  | - | - | - | - |
 

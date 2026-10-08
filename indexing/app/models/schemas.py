@@ -194,7 +194,7 @@ class FullDocument(BaseModel):
                 "title": "MNRP-BE-1 : 개발 가이드 정책",
                 "content": "# MNRP-BE-1 : 개발 가이드 정책\n\n## 1. 개요\n...",
                 "metadata": {
-                    "bucket_name": "cmp-docs",
+                    "bucket_name": "docs",
                     "object_name": "documents/740d31ce-33f1-4713-9ae4-11bf4572f7a6.md",
                     "file_size": 13899,
                     "content_type": "application/octet-stream"

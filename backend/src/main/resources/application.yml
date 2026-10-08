@@ -6,7 +6,7 @@ spring:
       initialization-fail-timeout: 60000
     url: jdbc:postgresql://127.0.0.1:5432/docs
     username: postgres
-    password: okestro2018
+    password: postgres
 
   jpa:
     hibernate:
@@ -18,7 +18,7 @@ minio:
   port: 9000
   client-id: minioadmin
   client-secret: minioadmin
-  bucket-name: cmp-docs
+  bucket-name: docs
 
 cors:
   host: http://127.0.0.1:3000
@@ -29,3 +29,7 @@ external:
     port: 8000
     enabled: true
     
+docs:
+  sync:
+    # 코드 → 문서 동기화 토큰 (ARCH-0001). 비어 있으면 PUT /api/v1/docs/sync 비활성
+    token: ${DOCS_SYNC_TOKEN:}

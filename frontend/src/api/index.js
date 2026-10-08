@@ -4,9 +4,9 @@ import { minioUtils } from '@/utils/minioClient'
 
 // API 클라이언트 설정
 const api = axios.create({
-  // baseURL: 'http://127.0.0.1:8080/api/v1', // Local
+  baseURL: 'http://localhost:8080/api/v1', // Local (docker-compose)
   // baseURL: 'http://15.164.158.85:8080/api/v1',  // AWS
-  baseURL: 'http://172.16.0.40:8080/api/v1',  // 사내 환경
+  // baseURL: 'http://172.16.0.40:8080/api/v1',  // 사내 환경
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -49,14 +49,14 @@ export const documentApi = {
   downloadFromMinioClient: async (filePath) => {
     // filePath를 그대로 사용 (documents/ 폴더 구조 유지)
     // 예: documents/e7f7383c-563f-465f-9ccc-e0df1164bc5d.txt
-    const objectName = filePath.replace(/^cmp-docs\//, '') // cmp-docs/ 접두사만 제거
+    const objectName = filePath.replace(/^docs\//, '') // docs/ 접두사만 제거
     console.log('MinIO 객체 이름:', objectName)
     return await minioUtils.downloadFile(objectName)
   },
 
   // MinIO 직접 URL 방식 (공개 버킷용) - 인증 없이
   getMinioDirectUrl: (filePath) => {
-    const objectName = filePath.replace(/^cmp-docs\//, '') // cmp-docs/ 접두사만 제거
+    const objectName = filePath.replace(/^docs\//, '') // docs/ 접두사만 제거
     const fullUrl = minioUtils.getDirectUrl(objectName)
     console.log('MinIO 직접 URL:', fullUrl)
     return fullUrl
