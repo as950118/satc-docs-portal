@@ -11,6 +11,7 @@ import Home from './views/Home.vue'
 import Login from './views/Login.vue'
 import SpecEditor from './views/SpecEditor.vue'
 import SpecList from './views/SpecList.vue'
+import TechDocView from './views/TechDocView.vue'
 
 // 라우트 가드 함수
 const requireAuth = (to, from, next) => {
@@ -48,7 +49,9 @@ const routes = [
   },
   { path: '/specs', component: SpecList, beforeEnter: requireAuth },
   { path: '/specs/new', component: SpecEditor, beforeEnter: requireAuth },
-  { path: '/specs/:id', component: SpecEditor, beforeEnter: requireAuth }
+  { path: '/specs/:id', component: SpecEditor, beforeEnter: requireAuth },
+  { path: '/specs/:prdId/tech/new', component: TechDocView, beforeEnter: requireAuth },
+  { path: '/tech-docs/:id', component: TechDocView, beforeEnter: requireAuth }
 ]
 
 const router = createRouter({
