@@ -44,8 +44,8 @@ SATC(Standard for AI Tools Commando)에서 개발하는 MCP Server의 문서 데
 | 순번 | Server |    Port    |                           역할                           |                                   비고                                    |
 |:--:|:------:|:--------------:|:------------------------------------------------------:|:-----------------------------------------------------------------------:|
 | 1  |  docs-front  |  3000  | 문서 관리 포탈 Frontend Server | |
-| 2  |  docs-back  | 8000 | 문서 관리 Backend Server | |
-| 3  |  docs-indexing  | 8080 | 문서 Indexing Server | |
+| 2  |  docs-back  | 8080 | 문서 관리 Backend Server | |
+| 3  |  docs-indexing  | 8000 | 문서 Indexing Server | |
 | 4  |  elasticsearch  | 9200/9300   | Chunk 및 문서 적재, 검색 Engine |  |
 | 5  |  minio   | 9000/9001 | 실제 문서 관리 Object Storage | [MinIO UI](http://localhost:9001), id: minioadmin / pw: minioadmin|
 | 6  |  postgres  |  5432   | 문서 메타데이터 관리 DB | id: postgres / pw: postgres|
