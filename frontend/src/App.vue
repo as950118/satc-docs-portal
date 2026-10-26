@@ -18,6 +18,7 @@
           <div class="header-actions">
             <!-- 주요 사이트 링크들 -->
             <div class="sites-links">
+              <router-link to="/specs" class="site-link">PRD</router-link>
               <a href="#" @click.prevent="openVpnSite('jenkins')" class="site-link vpn-link">
                 Jenkins <span class="vpn-text">(VPN)</span>
               </a>
