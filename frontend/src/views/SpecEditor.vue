@@ -48,7 +48,7 @@ import { SPEC_STATUS, canPlan, specApiMethods } from '@/api/specs'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const md = new MarkdownIt({ html: false, linkify: true })
@@ -75,6 +75,10 @@ const apply = (data) => {
 }
 
 const load = async () => {
+  if (isNew.value && !planner) {
+    router.replace('/specs')
+    return
+  }
   loading.value = true
   try {
     if (isNew.value) {
@@ -129,7 +133,8 @@ const approve = () => run(async () => {
   ElMessage.success('승인했습니다.')
 })
 
-onMounted(load)
+// /specs/new 에서 저장 후 /specs/:id 로 replace 하면 같은 컴포넌트가 재사용되므로 경로 변화에 맞춰 다시 불러온다.
+watch(() => route.params.id, load, { immediate: true })
 </script>
 
 <style scoped>
