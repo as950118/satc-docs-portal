@@ -29,6 +29,8 @@
       <div class="pane preview markdown-body" data-test="preview" v-html="rendered"></div>
     </div>
 
+    <TechDocsPanel v-if="approved" :spec="spec" @updated="apply" />
+
     <template v-if="spec">
       <h3>이력</h3>
       <el-timeline data-test="events">
@@ -45,6 +47,7 @@
 
 <script setup>
 import { SPEC_STATUS, canPlan, specApiMethods } from '@/api/specs'
+import TechDocsPanel from '@/components/TechDocsPanel.vue'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
@@ -63,7 +66,7 @@ const body = ref('')
 const loading = ref(false)
 const saving = ref(false)
 
-const approved = computed(() => spec.value?.status === 'PRD_APPROVED')
+const approved = computed(() => ['PRD_APPROVED', 'SPEC_APPROVED'].includes(spec.value?.status))
 const editable = computed(() => planner && (isNew.value || spec.value?.status === 'DRAFT'))
 const canApprove = computed(() => planner && spec.value?.status === 'DRAFT')
 const rendered = computed(() => md.render(body.value || ''))
@@ -85,7 +88,12 @@ const load = async () => {
       const tpl = await specApiMethods.getPrdTemplate()
       body.value = tpl.markdown
     } else {
-      apply(await specApiMethods.get(route.params.id))
+      const data = await specApiMethods.get(route.params.id)
+      if (data.kind !== 'PRD') {
+        router.replace(`/tech-docs/${data.id}`)
+        return
+      }
+      apply(data)
     }
   } catch (e) {
     ElMessage.error(e.message)
