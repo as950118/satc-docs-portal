@@ -2,7 +2,7 @@
   <el-main class="spec-editor" v-loading="loading">
     <div class="toolbar">
       <div class="title-line">
-        <el-button link @click="$router.push('/specs?kind=TECH')">&larr; 목록</el-button>
+        <el-button link @click="$router.push(`/specs?kind=${kind || 'PRD'}`)">&larr; 목록</el-button>
         <h2>{{ isNew ? `새 ${kindMeta?.label || '기술문서'}` : kindMeta?.label }}</h2>
         <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" data-test="status-tag">
           {{ SPEC_STATUS[spec.status]?.label || spec.status }}

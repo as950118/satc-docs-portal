@@ -1,15 +1,18 @@
 <template>
   <el-main class="spec-list">
     <div class="toolbar">
-      <h2>PRD 목록</h2>
+      <h2>{{ kindMeta.label }} 목록</h2>
       <div class="actions">
+        <el-radio-group v-model="kind" data-test="kind-filter" @change="load">
+          <el-radio-button v-for="(meta, key) in SPEC_KIND" :key="key" :label="key">{{ meta.label }}</el-radio-button>
+        </el-radio-group>
         <el-select v-model="status" placeholder="전체 상태" clearable style="width: 160px" @change="load">
           <el-option v-for="(meta, key) in SPEC_STATUS" :key="key" :label="meta.label" :value="key" />
         </el-select>
-        <el-button v-if="planner" type="primary" @click="$router.push('/specs/new')">새 PRD</el-button>
+        <el-button v-if="planner && kind === 'PRD'" type="primary" @click="$router.push('/specs/new')">새 PRD</el-button>
       </div>
     </div>
-    <el-table v-loading="loading" :data="specs" empty-text="PRD가 없습니다." @row-click="open" row-class-name="clickable">
+    <el-table v-loading="loading" :data="specs" empty-text="문서가 없습니다." @row-click="open" row-class-name="clickable">
       <el-table-column prop="title" label="제목" min-width="260" />
       <el-table-column label="상태" width="140">
         <template #default="{ row }">
@@ -25,22 +28,26 @@
 </template>
 
 <script setup>
-import { SPEC_STATUS, canPlan, specApiMethods } from '@/api/specs'
+import { SPEC_KIND, SPEC_STATUS, canPlan, specApiMethods } from '@/api/specs'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const planner = canPlan()
 const specs = ref([])
+const kind = ref(SPEC_KIND[route.query.kind] ? route.query.kind : 'PRD')
+const kindMeta = computed(() => SPEC_KIND[kind.value])
 const status = ref('')
 const loading = ref(false)
 
 const load = async () => {
   loading.value = true
   try {
-    specs.value = await specApiMethods.list({ status: status.value })
+    router.replace({ query: kind.value === 'PRD' ? {} : { kind: kind.value } })
+    specs.value = await specApiMethods.list({ kind: kind.value, status: status.value })
   } catch (e) {
     ElMessage.error(e.message)
   } finally {
@@ -48,7 +55,7 @@ const load = async () => {
   }
 }
 
-const open = (row) => router.push(`/specs/${row.id}`)
+const open = (row) => router.push(row.kind === 'PRD' ? `/specs/${row.id}` : `/tech-docs/${row.id}`)
 
 onMounted(load)
 </script>
