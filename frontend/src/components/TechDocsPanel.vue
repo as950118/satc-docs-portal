@@ -79,7 +79,7 @@ watch(() => props.spec.id, loadDocs, { immediate: true })
 </script>
 
 <style scoped>
-.tech-docs { margin-top: 24px; }
+.tech-docs { margin: 24px 0; flex-shrink: 0; }
 .steps { margin: 16px 0 24px; }
 .declare { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
