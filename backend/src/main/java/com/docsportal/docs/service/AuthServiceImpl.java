@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
 
+import com.docsportal.docs.common.Roles;
 import com.docsportal.docs.format.request.LoginRequest;
 import com.docsportal.docs.format.request.PasswordChangeRequest;
 import com.docsportal.docs.format.response.LoginResponse;
@@ -18,9 +19,10 @@ public class AuthServiceImpl implements AuthService {
     
     // 임시 사용자 데이터베이스 (실제 환경에서는 데이터베이스 사용)
     private static final Map<String, UserData> USERS = Map.of(
-        "admin", new UserData("admin", "admin123", "admin@example.com", "관리자", Arrays.asList("ADMIN", "USER")),
-        "editor", new UserData("editor", "editor123", "editor@example.com", "편집자", Arrays.asList("ADMIN", "USER")),
-        "viewer", new UserData("viewer", "viewer123", "viewer@example.com", "조회자", Arrays.asList("USER"))
+        "admin", new UserData("admin", "admin123", "admin@example.com", "관리자", Arrays.asList(Roles.ADMIN, Roles.USER)),
+        "editor", new UserData("editor", "editor123", "editor@example.com", "편집자", Arrays.asList(Roles.ADMIN, Roles.USER)),
+        "viewer", new UserData("viewer", "viewer123", "viewer@example.com", "조회자", Arrays.asList(Roles.USER)),
+        "planner", new UserData("planner", "planner123", "planner@example.com", "기획자", Arrays.asList(Roles.PLANNER, Roles.USER))
     );
     
     // 현재 로그인한 사용자 저장 (세션 대신 간단한 메모리 저장)

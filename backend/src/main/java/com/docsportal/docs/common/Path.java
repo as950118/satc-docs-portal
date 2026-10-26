@@ -10,6 +10,7 @@ public class Path {
     // Domain
     public static final String DOCS                         =   "/docs";
     public static final String AUTH                         =   "/auth";
+    public static final String SPECS                        =   "/specs";
 
 
     // 회원 관리
@@ -34,5 +35,12 @@ public class Path {
     public static final String API_DOCS_STATISTICS          =   API_DOCS + "/statistics";
     public static final String API_DOCS_FOLDERS             =   API_DOCS + "/folders";
     public static final String API_DOCS_SYNC                =   API_DOCS + "/sync";
+
+
+    // 스펙 워크플로우(SPECS)
+    public static final String API_SPECS                    =   API_COMMON + SPECS;
+    public static final String API_SPECS_ID                 =   API_SPECS + "/{specId}";
+    public static final String API_SPECS_APPROVE            =   API_SPECS_ID + "/approve";
+    public static final String API_SPECS_TEMPLATE_PRD       =   API_SPECS + "/templates/prd";
 
 }
