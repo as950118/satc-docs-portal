@@ -98,13 +98,14 @@ public class SpecService {
     }
 
     private Decision authorize(SpecKind kind, SpecStatus current, SpecAction action, SpecActor actor) {
-        Decision decision = SpecTransitions.decide(kind, current, action, actor.roles());
+        Decision decision = SpecTransitions.decide(kind, current, action, actor.roles(), SpecTransitions.PrdFacts.NONE);
         return switch (decision.verdict()) {
             case ALLOWED, ALREADY_DONE -> decision;
             case FORBIDDEN -> throw new SpecException(HttpStatus.FORBIDDEN,
                 "이 작업을 수행할 역할이 없습니다: " + action);
             case INVALID_STATE -> throw new SpecException(HttpStatus.CONFLICT,
                 "현재 상태(" + current + ")에서는 " + action + " 할 수 없습니다.");
+            case PRECONDITION_FAILED -> throw new SpecException(HttpStatus.CONFLICT, decision.failedGuard().failure());
         };
     }
 
