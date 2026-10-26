@@ -1,12 +1,12 @@
 package com.docsportal.docs.format.request;
 
 /**
- * 승인 요청. 본문 전체가 선택 사항이다.
+ * 승인·제출·변경 요청의 코멘트. 변경 요청(request-changes)에서만 필수다.
  */
-public class SpecApproveRequest {
+public class SpecCommentRequest {
     private String comment;
 
-    public SpecApproveRequest() {
+    public SpecCommentRequest() {
     }
 
     public String getComment() {
