@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +54,7 @@ public class SpecService {
         requireText(title, "title");
         requireText(body, "body");
 
-        SpecDocument doc = new SpecDocument(UUID.randomUUID().toString(), SpecKind.PRD, title, body,
+        SpecDocument doc = SpecDocument.prd(UUID.randomUUID().toString(), title, body,
             decision.transition().to(), actor.username());
         documents.saveAndFlush(doc);
         record(doc, decision, actor, null);
@@ -88,9 +87,7 @@ public class SpecService {
 
     @Transactional(readOnly = true)
     public List<SpecSummaryResponse> list(SpecKind kind, SpecStatus status) {
-        return documents.findAll(Sort.by(Sort.Direction.DESC, "updatedAt")).stream()
-            .filter(d -> kind == null || d.getKind() == kind)
-            .filter(d -> status == null || d.getStatus() == status)
+        return documents.search(kind, status, null).stream()
             .map(SpecSummaryResponse::from)
             .toList();
     }
