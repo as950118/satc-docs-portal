@@ -50,6 +50,8 @@ public class Path {
     public static final String API_SPECS_SUBMIT_IMPLEMENTATION  =   API_SPECS_ID + "/submit-implementation";
     public static final String API_SPECS_APPROVE_IMPLEMENTATION =   API_SPECS_ID + "/approve-implementation";
     public static final String API_SPECS_REQUEST_IMPL_CHANGES   =   API_SPECS_ID + "/request-implementation-changes";
+    public static final String API_SPECS_NEW_VERSION            =   API_SPECS_ID + "/new-version";
+    public static final String API_SPECS_ACKNOWLEDGE_PRD_CHANGE =   API_SPECS_ID + "/acknowledge-prd-change";
     public static final String API_SPECS_TEMPLATE_PRD       =   API_SPECS + "/templates/prd";
     public static final String API_SPECS_TEMPLATE_TECH      =   API_SPECS + "/templates/tech/{area}";
 

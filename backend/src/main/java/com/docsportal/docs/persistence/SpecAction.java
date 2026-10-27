@@ -22,7 +22,13 @@ public enum SpecAction {
     UNLINK_PR(false, false),
     SUBMIT_IMPLEMENTATION(true, false),
     APPROVE_IMPLEMENTATION(true, false),
-    REQUEST_IMPL_CHANGES(false, true);
+    REQUEST_IMPL_CHANGES(false, true),
+    // 새 버전 초안이 이미 있으면 서비스가 그 초안을 돌려준다
+    NEW_VERSION(false, false),
+    SUPERSEDE(false, false),
+    PRD_REVISED(false, false),
+    // 표시가 없으면 서비스가 이력 없이 성공으로 처리한다
+    ACKNOWLEDGE_PRD_CHANGE(false, false);
 
     private final boolean convergent;
     private final boolean commentRequired;

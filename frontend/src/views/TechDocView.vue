@@ -20,8 +20,22 @@
     <div v-if="prd" class="prd-link" data-test="prd-link">
       상위 PRD:
       <router-link :to="`/specs/${prd.id}`">{{ prd.title }}</router-link>
+      <el-tag size="small" effect="plain">v{{ prd.revision }}</el-tag>
       <el-tag size="small" :type="SPEC_STATUS[prd.status]?.tag">{{ SPEC_STATUS[prd.status]?.label || prd.status }}</el-tag>
     </div>
+
+    <el-alert v-if="spec?.prdChanged" type="error" :closable="false" show-icon class="notice" data-test="prd-changed">
+      <template #title>
+        <template v-if="inImpl">
+          PRD가 v{{ spec.prdRevision }}에서 v{{ prd?.revision }}(으)로 바뀌었습니다. 구현 영향을 확인하세요.
+          <el-button v-if="canImplement(kind)" size="small" type="danger" :loading="saving" data-test="ack-prd-change"
+            @click="acknowledge">영향 확인 완료</el-button>
+        </template>
+        <template v-else>
+          PRD가 v{{ spec.prdRevision }}에서 v{{ prd?.revision }}(으)로 바뀌어 다시 검토해야 합니다. 영역 담당자가 승인하면 표시가 사라집니다.
+        </template>
+      </template>
+    </el-alert>
 
     <el-alert v-if="spec && !authorRole && !inImpl && spec.status !== 'IN_REVIEW'" type="info" :closable="false" show-icon class="notice"
       title="PLANNER 또는 해당 영역 역할만 작성할 수 있습니다. 읽기 전용으로 표시됩니다." />
@@ -65,7 +79,7 @@
 </template>
 
 <script setup>
-import { AREA_META, SPEC_KIND, SPEC_STATUS, actionLabel, canAuthorTech, canReview, specApiMethods, statusLabel } from '@/api/specs'
+import { AREA_META, SPEC_KIND, SPEC_STATUS, actionLabel, canAuthorTech, canImplement, canReview, specApiMethods, statusLabel } from '@/api/specs'
 import ImplementationPanel from '@/components/ImplementationPanel.vue'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
@@ -195,6 +209,11 @@ const approve = () => run(async () => {
   if (prd.value?.status === 'SPEC_APPROVED') {
     ElMessage.success('모든 영역이 승인되어 PRD가 명세 승인 상태가 되었습니다.')
   }
+})
+
+const acknowledge = () => run(async () => {
+  apply(await specApiMethods.acknowledgePrdChange(spec.value.id))
+  ElMessage.success('PRD 변경 영향 확인을 기록했습니다.')
 })
 
 const requestChanges = () => run(async () => {

@@ -23,9 +23,12 @@ import jakarta.persistence.UniqueConstraint;
  * 스펙 문서 한 건. kind 만 다르고 같은 전이 엔진을 쓴다 (ARCH-0004).
  * 상태 변경은 항상 SpecService 가 전이 표를 통과시킨 뒤에만 호출한다.
  * prdId 는 기술문서에만, techAreas 는 PRD 에만, prLinks 는 구현 단계 기술문서에만 값이 있다.
+ * PRD 는 버전마다 행이 따로 있고 supersedesId 로 직전 버전을 가리킨다. revision 과 supersedesId 는 PRD 에만,
+ * prdRevision 은 기술문서에만 값이 있다.
  */
 @Entity
-@Table(name = "spec_document", indexes = @Index(name = "idx_spec_document_prd_id", columnList = "prd_id"))
+@Table(name = "spec_document", indexes = @Index(name = "idx_spec_document_prd_id", columnList = "prd_id"),
+    uniqueConstraints = @UniqueConstraint(name = "uk_spec_document_supersedes_id", columnNames = "supersedes_id"))
 public class SpecDocument extends BaseEntity {
 
     @Id
@@ -55,6 +58,16 @@ public class SpecDocument extends BaseEntity {
     @Column(nullable = false)
     private String author;
 
+    @Column(name = "revision")
+    private Integer revision;
+
+    @Column(name = "supersedes_id")
+    private String supersedesId;
+
+    // 이 기술문서를 마지막으로 승인하거나 영향 확인한 PRD revision. 부모보다 작으면 "PRD 변경" 표시다
+    @Column(name = "prd_revision")
+    private Integer prdRevision;
+
     // 문서가 소유한 컬렉션이라 링크를 더하면 문서 version 이 오른다. 오래된 문서 상태로 링크를 붙이는 동시 요청이 그래서 409 가 된다
     @ElementCollection
     @CollectionTable(name = "spec_pr_link", joinColumns = @JoinColumn(name = "spec_id"),
@@ -76,12 +89,24 @@ public class SpecDocument extends BaseEntity {
     }
 
     public static SpecDocument prd(String id, String title, String body, SpecStatus status, String author) {
-        return new SpecDocument(id, SpecKind.PRD, null, title, body, status, author);
+        SpecDocument prd = new SpecDocument(id, SpecKind.PRD, null, title, body, status, author);
+        prd.revision = 1;
+        return prd;
     }
 
-    public static SpecDocument techDoc(String id, TechArea area, String prdId, String title, String body,
+    /** prior 의 현재 본문으로 시작하는 다음 버전. prior 는 이 버전이 승인될 때까지 승인본으로 남는다. */
+    public static SpecDocument nextVersionOf(SpecDocument prior, String id, SpecStatus status, String author) {
+        SpecDocument next = new SpecDocument(id, SpecKind.PRD, null, prior.title, prior.body, status, author);
+        next.revision = prior.revision + 1;
+        next.supersedesId = prior.id;
+        return next;
+    }
+
+    public static SpecDocument techDoc(String id, TechArea area, SpecDocument prd, String title, String body,
                                        SpecStatus status, String author) {
-        return new SpecDocument(id, area.kind(), prdId, title, body, status, author);
+        SpecDocument doc = new SpecDocument(id, area.kind(), prd.getId(), title, body, status, author);
+        doc.prdRevision = prd.getRevision();
+        return doc;
     }
 
     public String getId() {
@@ -124,6 +149,34 @@ public class SpecDocument extends BaseEntity {
 
     public String getAuthor() {
         return author;
+    }
+
+    public Integer getRevision() {
+        return revision;
+    }
+
+    public String getSupersedesId() {
+        return supersedesId;
+    }
+
+    public Integer getPrdRevision() {
+        return prdRevision;
+    }
+
+    /** 기술문서가 부모 PRD 의 현재 버전을 아직 승인하거나 확인하지 않았다. */
+    public boolean isBehind(SpecDocument prd) {
+        return prdRevision != null && prdRevision < prd.getRevision();
+    }
+
+    /** 기술문서를 부모 PRD 의 현재 버전 기준으로 확인했다고 기록한다. PRD 자신에게는 의미가 없어 무시한다. */
+    public void confirmAgainst(SpecDocument prd) {
+        if (prdId != null) {
+            prdRevision = prd.getRevision();
+        }
+    }
+
+    public void moveUnder(SpecDocument prd) {
+        this.prdId = prd.getId();
     }
 
     public List<SpecPrLink> getPrLinks() {
