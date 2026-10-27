@@ -42,16 +42,48 @@ const call = async (request) => {
 
 export const specApiMethods = {
   getPrdTemplate: () => call(specApi.get('/templates/prd')),
-  list: ({ kind = 'PRD', status } = {}) => call(specApi.get('', { params: { kind, status: status || undefined } })),
+  list: ({ kind = 'PRD', status, prdId } = {}) =>
+    call(specApi.get('', { params: { kind: kind || undefined, status: status || undefined, prdId: prdId || undefined } })),
   get: (id) => call(specApi.get(`/${id}`)),
   create: (title, body) => call(specApi.post('', { title, body })),
   update: (id, title, body) => call(specApi.put(`/${id}`, { title, body })),
   approve: (id, comment) => call(specApi.post(`/${id}/approve`, comment ? { comment } : {})),
+  submit: (id) => call(specApi.post(`/${id}/submit`, {})),
+  requestChanges: (id, comment) => call(specApi.post(`/${id}/request-changes`, { comment })),
+  setTechAreas: (prdId, areas) => call(specApi.put(`/${prdId}/tech-areas`, { areas })),
+  createTechDoc: (prdId, area, title, body) => call(specApi.post(`/${prdId}/tech-docs`, { area, title, body })),
+  listTechDocs: (prdId) => call(specApi.get(`/${prdId}/tech-docs`)),
+  getTechTemplate: (area) => call(specApi.get(`/templates/tech/${area}`)),
 }
 
 export const SPEC_STATUS = {
   DRAFT: { label: '초안', tag: 'info' },
-  PRD_APPROVED: { label: 'PRD 승인', tag: 'success' },
+  PRD_APPROVED: { label: 'PRD 승인', tag: 'warning' },
+  SPEC_APPROVED: { label: '명세 승인', tag: 'success' },
+  IN_REVIEW: { label: '검토 중', tag: 'primary' },
+  CHANGES_REQUESTED: { label: '변경 요청', tag: 'danger' },
+  APPROVED: { label: '승인', tag: 'success' },
 }
 
+export const SPEC_KIND = {
+  PRD: { label: 'PRD' },
+  TECH_BE: { label: 'BE 기술문서', area: 'BE', role: 'BACKEND' },
+  TECH_FE: { label: 'FE 기술문서', area: 'FE', role: 'FRONTEND' },
+  TECH_DATA: { label: 'DATA 기술문서', area: 'DATA', role: 'DATA' },
+}
+
+export const TECH_AREAS = Object.entries(SPEC_KIND)
+  .filter(([, meta]) => meta.area)
+  .map(([kind, meta]) => ({ area: meta.area, kind, role: meta.role, label: meta.label }))
+
+export const AREA_META = Object.fromEntries(TECH_AREAS.map((a) => [a.area, a]))
+
 export const canPlan = () => authUtils.hasRole('PLANNER')
+
+export const canReview = (kind) => {
+  const role = SPEC_KIND[kind]?.role
+  return !!role && authUtils.hasRole(role)
+}
+
+// 작성과 제출은 PLANNER 또는 영역 역할, 검토(승인/변경 요청)는 영역 역할만 가능하다.
+export const canAuthorTech = (kind) => canPlan() || canReview(kind)
