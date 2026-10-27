@@ -1,21 +1,28 @@
 package com.docsportal.docs.persistence;
 
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 /**
  * 스펙 문서 한 건. kind 만 다르고 같은 전이 엔진을 쓴다 (ARCH-0004).
  * 상태 변경은 항상 SpecService 가 전이 표를 통과시킨 뒤에만 호출한다.
- * prdId 는 기술문서에만, techAreas 는 PRD 에만 값이 있다.
+ * prdId 는 기술문서에만, techAreas 는 PRD 에만, prLinks 는 구현 단계 기술문서에만 값이 있다.
  */
 @Entity
 @Table(name = "spec_document", indexes = @Index(name = "idx_spec_document_prd_id", columnList = "prd_id"))
@@ -47,6 +54,13 @@ public class SpecDocument extends BaseEntity {
 
     @Column(nullable = false)
     private String author;
+
+    // 문서가 소유한 컬렉션이라 링크를 더하면 문서 version 이 오른다. 오래된 문서 상태로 링크를 붙이는 동시 요청이 그래서 409 가 된다
+    @ElementCollection
+    @CollectionTable(name = "spec_pr_link", joinColumns = @JoinColumn(name = "spec_id"),
+        uniqueConstraints = @UniqueConstraint(name = "uk_spec_pr_link_spec_url", columnNames = {"spec_id", "url"}))
+    @OrderBy("linkedAt asc")
+    private Set<SpecPrLink> prLinks = new LinkedHashSet<>();
 
     protected SpecDocument() {
     }
@@ -110,6 +124,15 @@ public class SpecDocument extends BaseEntity {
 
     public String getAuthor() {
         return author;
+    }
+
+    public List<SpecPrLink> getPrLinks() {
+        return List.copyOf(prLinks);
+    }
+
+    /** 같은 URL 이 이미 있으면 바꾸지 않고 false. */
+    public boolean linkPr(SpecPrLink link) {
+        return prLinks.add(link);
     }
 
     public void edit(String title, String body) {

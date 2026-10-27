@@ -29,6 +29,7 @@ import com.docsportal.docs.persistence.TechArea;
 import com.docsportal.docs.repository.SpecDocumentRepository;
 import com.docsportal.docs.repository.SpecEventRepository;
 import com.docsportal.docs.service.SpecTransitions.Decision;
+import com.docsportal.docs.service.SpecTransitions.Facts;
 import com.docsportal.docs.service.SpecTransitions.PrdFacts;
 import com.docsportal.docs.service.SpecTransitions.Verdict;
 
@@ -61,7 +62,7 @@ public class SpecService {
 
     @Transactional
     public SpecDetailResponse create(SpecActor actor, String title, String body) {
-        Decision decision = authorize(SpecKind.PRD, null, SpecAction.CREATE, actor, PrdFacts.NONE);
+        Decision decision = authorize(SpecKind.PRD, null, SpecAction.CREATE, actor, new Facts(PrdFacts.NONE, 0));
         requireText(title, "title");
         requireText(body, "body");
 
@@ -75,7 +76,7 @@ public class SpecService {
     @Transactional
     public SpecDetailResponse createTechDoc(SpecActor actor, String prdId, TechArea area, String title, String body) {
         SpecDocument prd = lockPrd(prdId);
-        Decision decision = authorize(area.kind(), null, SpecAction.CREATE, actor, factsOf(prd));
+        Decision decision = authorize(area.kind(), null, SpecAction.CREATE, actor, new Facts(prdFacts(prd), 0));
         requireText(title, "title");
         requireText(body, "body");
 
@@ -90,7 +91,7 @@ public class SpecService {
     @Transactional
     public SpecDetailResponse setTechAreas(SpecActor actor, String prdId, Set<TechArea> areas) {
         SpecDocument prd = lockPrd(prdId);
-        Decision decision = authorize(prd.getKind(), prd.getStatus(), SpecAction.SET_TECH_AREAS, actor, factsOf(prd));
+        Decision decision = authorize(prd.getKind(), prd.getStatus(), SpecAction.SET_TECH_AREAS, actor, factsOf(prd, prd));
         if (areas.isEmpty()) {
             throw new SpecException(HttpStatus.BAD_REQUEST, "areas 에 영역이 1개 이상 필요합니다.");
         }
@@ -151,7 +152,7 @@ public class SpecService {
                                           Consumer<SpecDocument> change) {
         SpecDocument doc = find(id);
         SpecDocument prd = lockPrd(doc.getRootPrdId());
-        Decision decision = authorize(doc.getKind(), doc.getStatus(), action, actor, factsOf(prd));
+        Decision decision = authorize(doc.getKind(), doc.getStatus(), action, actor, factsOf(prd, doc));
         if (action.isCommentRequired()) {
             requireText(comment, "comment");
         }
@@ -172,7 +173,7 @@ public class SpecService {
      */
     private void aggregate(SpecDocument prd) {
         Decision decision = SpecTransitions.decide(prd.getKind(), prd.getStatus(), SpecAction.AGGREGATE,
-            SYSTEM.roles(), factsOf(prd));
+            SYSTEM.roles(), factsOf(prd, prd));
         if (decision.verdict() != Verdict.ALLOWED) {
             return;
         }
@@ -181,14 +182,18 @@ public class SpecService {
         record(prd, decision, SYSTEM, null);
     }
 
-    private PrdFacts factsOf(SpecDocument prd) {
+    private Facts factsOf(SpecDocument prd, SpecDocument subject) {
+        return new Facts(prdFacts(prd), subject.getPrLinks().size());
+    }
+
+    private PrdFacts prdFacts(SpecDocument prd) {
         Map<SpecKind, SpecStatus> techDocs = new EnumMap<>(SpecKind.class);
         documents.findByPrdIdOrderByCreatedAtAsc(prd.getId()).forEach(d -> techDocs.put(d.getKind(), d.getStatus()));
         return new PrdFacts(prd.getStatus(), prd.getTechAreas(), techDocs);
     }
 
-    private Decision authorize(SpecKind kind, SpecStatus current, SpecAction action, SpecActor actor, PrdFacts prd) {
-        Decision decision = SpecTransitions.decide(kind, current, action, actor.roles(), prd);
+    private Decision authorize(SpecKind kind, SpecStatus current, SpecAction action, SpecActor actor, Facts facts) {
+        Decision decision = SpecTransitions.decide(kind, current, action, actor.roles(), facts);
         return switch (decision.verdict()) {
             case ALLOWED, ALREADY_DONE -> decision;
             case FORBIDDEN -> throw new SpecException(HttpStatus.FORBIDDEN,

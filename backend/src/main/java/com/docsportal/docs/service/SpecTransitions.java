@@ -29,23 +29,36 @@ public final class SpecTransitions {
     public record PrdFacts(SpecStatus status, Set<TechArea> areas, Map<SpecKind, SpecStatus> techDocs) {
         /** 아직 PRD 가 없을 때(PRD 생성). */
         public static final PrdFacts NONE = new PrdFacts(null, Set.of(), Map.of());
+
+        boolean allDeclaredAreasAre(SpecStatus status) {
+            return !areas.isEmpty() && areas.stream().allMatch(a -> techDocs.get(a.kind()) == status);
+        }
+    }
+
+    /** guard 가 보는 스냅샷 전체. 대상 문서 자신의 PR 링크 수와 그 문서가 속한 PRD 쪽 사실이다. */
+    public record Facts(PrdFacts prd, int prLinks) {
     }
 
     public enum Guard {
         PRD_APPROVED("부모 PRD 가 PRD_APPROVED 상태가 아닙니다.",
-            (kind, prd) -> prd.status() == SpecStatus.PRD_APPROVED),
+            (kind, f) -> f.prd().status() == SpecStatus.PRD_APPROVED),
         AREA_DECLARED("PRD 의 tech_areas 에 선언되지 않은 영역입니다.",
-            (kind, prd) -> TechArea.of(kind).filter(prd.areas()::contains).isPresent()),
+            (kind, f) -> TechArea.of(kind).filter(f.prd().areas()::contains).isPresent()),
         AREA_VACANT("이 영역의 기술문서가 이미 있습니다.",
-            (kind, prd) -> !prd.techDocs().containsKey(kind)),
+            (kind, f) -> !f.prd().techDocs().containsKey(kind)),
         ALL_AREAS_APPROVED("선언된 모든 영역의 기술문서가 승인되지 않았습니다.",
-            (kind, prd) -> !prd.areas().isEmpty()
-                && prd.areas().stream().allMatch(a -> prd.techDocs().get(a.kind()) == SpecStatus.APPROVED));
+            (kind, f) -> f.prd().allDeclaredAreasAre(SpecStatus.APPROVED)),
+        PRD_SPEC_APPROVED("부모 PRD 가 SPEC_APPROVED 상태가 아닙니다.",
+            (kind, f) -> f.prd().status() == SpecStatus.SPEC_APPROVED),
+        HAS_PR("연결된 PR 이 없습니다. 먼저 PR 링크를 추가하세요.",
+            (kind, f) -> f.prLinks() > 0),
+        ALL_AREAS_IMPLEMENTED("선언된 모든 영역의 기술문서가 구현 완료되지 않았습니다.",
+            (kind, f) -> f.prd().allDeclaredAreasAre(SpecStatus.IMPLEMENTED));
 
         private final String failure;
-        private final BiPredicate<SpecKind, PrdFacts> holds;
+        private final BiPredicate<SpecKind, Facts> holds;
 
-        Guard(String failure, BiPredicate<SpecKind, PrdFacts> holds) {
+        Guard(String failure, BiPredicate<SpecKind, Facts> holds) {
             this.failure = failure;
             this.holds = holds;
         }
@@ -54,8 +67,8 @@ public final class SpecTransitions {
             return failure;
         }
 
-        boolean holds(SpecKind kind, PrdFacts prd) {
-            return holds.test(kind, prd);
+        boolean holds(SpecKind kind, Facts facts) {
+            return holds.test(kind, facts);
         }
     }
 
@@ -80,22 +93,32 @@ public final class SpecTransitions {
             row(SpecKind.PRD, SpecStatus.DRAFT,        SpecAction.APPROVE,        List.of(Roles.PLANNER), SpecStatus.PRD_APPROVED),
             row(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.SET_TECH_AREAS, List.of(Roles.PLANNER), SpecStatus.PRD_APPROVED),
             row(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.AGGREGATE,      List.of(Roles.SYSTEM),  SpecStatus.SPEC_APPROVED,
-                Guard.ALL_AREAS_APPROVED)),
+                Guard.ALL_AREAS_APPROVED),
+            row(SpecKind.PRD, SpecStatus.SPEC_APPROVED, SpecAction.AGGREGATE,     List.of(Roles.SYSTEM),  SpecStatus.IMPLEMENTED,
+                Guard.ALL_AREAS_IMPLEMENTED)),
         Arrays.stream(TechArea.values()).flatMap(SpecTransitions::techRows)
     ).toList();
 
     private static Stream<Transition> techRows(TechArea area) {
         SpecKind kind = area.kind();
         List<String> writers = List.of(Roles.PLANNER, area.role());
-        List<String> reviewers = List.of(area.role());
+        List<String> areaRole = List.of(area.role());
+        List<String> codeReviewer = List.of(Roles.REVIEWER);
         return Stream.of(
-            row(kind, null,                         SpecAction.CREATE,          writers,   SpecStatus.DRAFT,
+            row(kind, null,                         SpecAction.CREATE,                 writers,      SpecStatus.DRAFT,
                 Guard.PRD_APPROVED, Guard.AREA_DECLARED, Guard.AREA_VACANT),
-            row(kind, SpecStatus.DRAFT,             SpecAction.EDIT,            writers,   SpecStatus.DRAFT),
-            row(kind, SpecStatus.CHANGES_REQUESTED, SpecAction.EDIT,            writers,   SpecStatus.DRAFT),
-            row(kind, SpecStatus.DRAFT,             SpecAction.SUBMIT,          writers,   SpecStatus.IN_REVIEW),
-            row(kind, SpecStatus.IN_REVIEW,         SpecAction.APPROVE,         reviewers, SpecStatus.APPROVED),
-            row(kind, SpecStatus.IN_REVIEW,         SpecAction.REQUEST_CHANGES, reviewers, SpecStatus.CHANGES_REQUESTED));
+            row(kind, SpecStatus.DRAFT,             SpecAction.EDIT,                   writers,      SpecStatus.DRAFT),
+            row(kind, SpecStatus.CHANGES_REQUESTED, SpecAction.EDIT,                   writers,      SpecStatus.DRAFT),
+            row(kind, SpecStatus.DRAFT,             SpecAction.SUBMIT,                 writers,      SpecStatus.IN_REVIEW),
+            row(kind, SpecStatus.IN_REVIEW,         SpecAction.APPROVE,                areaRole,     SpecStatus.APPROVED),
+            row(kind, SpecStatus.IN_REVIEW,         SpecAction.REQUEST_CHANGES,        areaRole,     SpecStatus.CHANGES_REQUESTED),
+            row(kind, SpecStatus.APPROVED,          SpecAction.START_IMPLEMENTATION,   areaRole,     SpecStatus.IN_IMPLEMENTATION,
+                Guard.PRD_SPEC_APPROVED),
+            row(kind, SpecStatus.IN_IMPLEMENTATION, SpecAction.LINK_PR,                areaRole,     SpecStatus.IN_IMPLEMENTATION),
+            row(kind, SpecStatus.IN_IMPLEMENTATION, SpecAction.SUBMIT_IMPLEMENTATION,  areaRole,     SpecStatus.IMPL_IN_REVIEW,
+                Guard.HAS_PR),
+            row(kind, SpecStatus.IMPL_IN_REVIEW,    SpecAction.APPROVE_IMPLEMENTATION, codeReviewer, SpecStatus.IMPLEMENTED),
+            row(kind, SpecStatus.IMPL_IN_REVIEW,    SpecAction.REQUEST_IMPL_CHANGES,   codeReviewer, SpecStatus.IN_IMPLEMENTATION));
     }
 
     private static Transition row(SpecKind kind, SpecStatus from, SpecAction action, List<String> roles, SpecStatus to,
@@ -110,7 +133,7 @@ public final class SpecTransitions {
      * 역할, 상태, guard 순서로 검사한다. 역할을 먼저 보는 이유는 권한 없는 호출자에게 문서 상태를 노출하지 않기 위해서다.
      */
     public static Decision decide(SpecKind kind, SpecStatus current, SpecAction action, List<String> actorRoles,
-                                  PrdFacts prd) {
+                                  Facts facts) {
         List<Transition> candidates = TABLE.stream()
             .filter(t -> t.kind() == kind && t.action() == action)
             .toList();
@@ -132,7 +155,7 @@ public final class SpecTransitions {
         }
 
         return row.guards().stream()
-            .filter(g -> !g.holds(kind, prd))
+            .filter(g -> !g.holds(kind, facts))
             .findFirst()
             .map(g -> new Decision(Verdict.PRECONDITION_FAILED, row, null, g))
             .orElseGet(() -> new Decision(Verdict.ALLOWED, row, actorRole, null));
