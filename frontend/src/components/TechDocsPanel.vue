@@ -2,9 +2,10 @@
   <section class="tech-docs" data-test="tech-docs">
     <h3>기술문서</h3>
 
-    <el-steps :active="spec.status === 'SPEC_APPROVED' ? 2 : 1" finish-status="success" class="steps" data-test="prd-steps">
+    <el-steps :active="STEP_ACTIVE[spec.status] || 1" finish-status="success" class="steps" data-test="prd-steps">
       <el-step title="PRD 승인" description="PRD_APPROVED" />
       <el-step title="명세 승인" description="SPEC_APPROVED (필요 영역 기술문서가 모두 승인되면 자동)" />
+      <el-step title="구현 완료" description="IMPLEMENTED (모든 영역의 구현이 승인되면 자동)" />
     </el-steps>
 
     <div v-if="planner && spec.status === 'PRD_APPROVED'" class="declare" data-test="declare">
@@ -42,6 +43,8 @@ import { computed, ref, watch } from 'vue'
 
 const props = defineProps({ spec: { type: Object, required: true } })
 const emit = defineEmits(['updated'])
+
+const STEP_ACTIVE = { PRD_APPROVED: 1, SPEC_APPROVED: 2, IMPLEMENTED: 3 }
 
 const planner = canPlan()
 const selected = ref([...props.spec.techAreas])
