@@ -2,7 +2,7 @@ package com.docsportal.docs.common;
 
 /**
  * 역할 문자열 상수의 단일 정의 위치.
- * 사용자(AuthServiceImpl)와 스펙 전이 표(SpecTransitions)가 같은 값을 참조한다.
+ * 계정(AccountSeeder)과 스펙 전이 표(SpecTransitions)가 같은 값을 참조한다.
  */
 public final class Roles {
 

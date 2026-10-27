@@ -99,6 +99,24 @@ docker compose down {service-name} -v --rmi all
 
 
 ---
+## 🔐  인증과 계정
+계정은 DB(`app_user`, `app_user_role`)에 있고 비밀번호는 bcrypt 해시(`{bcrypt}...`)로만 저장합니다.  
+로그인(`POST /api/v1/auth/login`)은 HS256 JWT를 `token`으로, 유효 시간(초)을 `expiresIn`으로 돌려줍니다. 서버는 세션을 저장하지 않으므로 재기동해도 토큰이 유지되고, 로그아웃은 클라이언트가 토큰을 버리는 것으로 끝납니다.  
+요청마다 토큰 서명·만료를 확인한 뒤 계정을 다시 읽으므로, 계정을 비활성화(`enabled=false`)하거나 역할을 바꾸면 기존 토큰에도 바로 반영됩니다.
+
+| 환경변수 | 속성 | 기본값 | 설명 |
+|---|---|---|---|
+| `DOCS_AUTH_TOKEN_SECRET` | `docs.auth.token-secret` | 없음 | 토큰 서명 키, 32바이트 이상. 비어 있으면 기동하지 않습니다(`dev` 프로필만 예외로 기동마다 임시 키 생성). 예: `openssl rand -base64 48` |
+| `DOCS_AUTH_TOKEN_TTL` | `docs.auth.token-ttl` | `12h` | 토큰 유효 시간 |
+| `DOCS_AUTH_ADMIN_USERNAME` / `DOCS_AUTH_ADMIN_PASSWORD` | `docs.auth.initial-admin.*` | 없음 | 둘 다 설정하면 해당 username이 없을 때만 ADMIN 계정을 만듭니다. 이미 있으면 비밀번호를 바꾸지 않습니다 |
+| `DOCS_AUTH_DEV_ACCOUNTS` | `docs.auth.dev-accounts` | `false` (`dev` 프로필은 `true`) | 개발용 계정을 없을 때만 만듭니다 |
+
+개발용 계정은 `admin`, `editor`, `viewer`, `planner`, `backend`, `frontend`, `data`, `reviewer`이고 비밀번호는 `<이름>123`입니다. 운영에서는 켜지 마세요.
+
+- 로컬 개발: `./gradlew bootRun --args='--spring.profiles.active=dev'` (임시 서명 키 + 개발용 계정)
+- 운영(docker compose): `.env`에 `DOCS_AUTH_TOKEN_SECRET`, 처음 한 번 `DOCS_AUTH_ADMIN_USERNAME`/`DOCS_AUTH_ADMIN_PASSWORD`를 설정합니다. 서명 키는 저장소에 커밋하지 마세요.
+
+---
 ## 🌈  License
 | 순번 | 사용 기술 |   버전   |           라이선스            |               용도               |  비고  |
 |:--:|:----:|:--------:|:--------------------------:|:-------------------------------:|:----:|
