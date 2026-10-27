@@ -130,9 +130,12 @@ public class SpecDocument extends BaseEntity {
         return List.copyOf(prLinks);
     }
 
-    /** 같은 URL 이 이미 있으면 바꾸지 않고 false. */
-    public boolean linkPr(SpecPrLink link) {
-        return prLinks.add(link);
+    public boolean hasPrLink(SpecPrLink link) {
+        return prLinks.contains(link);
+    }
+
+    public void linkPr(SpecPrLink link) {
+        prLinks.add(link);
     }
 
     public void edit(String title, String body) {

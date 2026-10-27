@@ -2,9 +2,14 @@ package com.docsportal.docs.controller;
 
 import static com.docsportal.docs.common.Path.API_SPECS;
 import static com.docsportal.docs.common.Path.API_SPECS_APPROVE;
+import static com.docsportal.docs.common.Path.API_SPECS_APPROVE_IMPLEMENTATION;
 import static com.docsportal.docs.common.Path.API_SPECS_ID;
+import static com.docsportal.docs.common.Path.API_SPECS_PR_LINKS;
 import static com.docsportal.docs.common.Path.API_SPECS_REQUEST_CHANGES;
+import static com.docsportal.docs.common.Path.API_SPECS_REQUEST_IMPL_CHANGES;
+import static com.docsportal.docs.common.Path.API_SPECS_START_IMPLEMENTATION;
 import static com.docsportal.docs.common.Path.API_SPECS_SUBMIT;
+import static com.docsportal.docs.common.Path.API_SPECS_SUBMIT_IMPLEMENTATION;
 import static com.docsportal.docs.common.Path.API_SPECS_TECH_AREAS;
 import static com.docsportal.docs.common.Path.API_SPECS_TECH_DOCS;
 import static com.docsportal.docs.common.Path.API_SPECS_TEMPLATE_PRD;
@@ -32,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.docsportal.docs.common.RestResponse;
 import com.docsportal.docs.format.request.SpecCommentRequest;
+import com.docsportal.docs.format.request.SpecPrLinkRequest;
 import com.docsportal.docs.format.request.SpecTechAreasRequest;
 import com.docsportal.docs.format.request.SpecTechDocRequest;
 import com.docsportal.docs.format.request.SpecWriteRequest;
@@ -142,6 +148,51 @@ public class SpecController {
             @RequestBody(required = false) SpecCommentRequest request) {
         SpecActor actor = authenticate(authorization);
         return ok(specService.requestChanges(actor, specId, commentOf(request)));
+    }
+
+    @PostMapping(API_SPECS_START_IMPLEMENTATION)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> startImplementation(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String specId,
+            @RequestBody(required = false) SpecCommentRequest request) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.startImplementation(actor, specId, commentOf(request)));
+    }
+
+    @PostMapping(API_SPECS_PR_LINKS)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> linkPr(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String specId,
+            @RequestBody(required = false) SpecPrLinkRequest request) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.linkPr(actor, specId, request == null ? null : request.getUrl()));
+    }
+
+    @PostMapping(API_SPECS_SUBMIT_IMPLEMENTATION)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> submitImplementation(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String specId,
+            @RequestBody(required = false) SpecCommentRequest request) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.submitImplementation(actor, specId, commentOf(request)));
+    }
+
+    @PostMapping(API_SPECS_APPROVE_IMPLEMENTATION)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> approveImplementation(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String specId,
+            @RequestBody(required = false) SpecCommentRequest request) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.approveImplementation(actor, specId, commentOf(request)));
+    }
+
+    @PostMapping(API_SPECS_REQUEST_IMPL_CHANGES)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> requestImplementationChanges(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String specId,
+            @RequestBody(required = false) SpecCommentRequest request) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.requestImplementationChanges(actor, specId, commentOf(request)));
     }
 
     @PutMapping(API_SPECS_TECH_AREAS)

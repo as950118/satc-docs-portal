@@ -45,6 +45,11 @@ public class Path {
     public static final String API_SPECS_REQUEST_CHANGES    =   API_SPECS_ID + "/request-changes";
     public static final String API_SPECS_TECH_AREAS         =   API_SPECS_ID + "/tech-areas";
     public static final String API_SPECS_TECH_DOCS          =   API_SPECS_ID + "/tech-docs";
+    public static final String API_SPECS_START_IMPLEMENTATION   =   API_SPECS_ID + "/start-implementation";
+    public static final String API_SPECS_PR_LINKS               =   API_SPECS_ID + "/pr-links";
+    public static final String API_SPECS_SUBMIT_IMPLEMENTATION  =   API_SPECS_ID + "/submit-implementation";
+    public static final String API_SPECS_APPROVE_IMPLEMENTATION =   API_SPECS_ID + "/approve-implementation";
+    public static final String API_SPECS_REQUEST_IMPL_CHANGES   =   API_SPECS_ID + "/request-implementation-changes";
     public static final String API_SPECS_TEMPLATE_PRD       =   API_SPECS + "/templates/prd";
     public static final String API_SPECS_TEMPLATE_TECH      =   API_SPECS + "/templates/tech/{area}";
 

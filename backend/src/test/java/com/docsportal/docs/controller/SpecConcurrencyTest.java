@@ -88,8 +88,26 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
         return prd;
     }
 
-    private Callable<Integer> racingApprove(String id, String bearer) {
-        return () -> racingMvc.perform(post("/api/v1/specs/" + id + "/approve").header("Authorization", bearer))
+    private String approved(String prdId, String area, String user) throws Exception {
+        String bearer = login(user);
+        String id = inReview(prdId, area, user);
+        mvc.perform(post("/api/v1/specs/" + id + "/approve").header("Authorization", bearer)).andExpect(status().isOk());
+        return id;
+    }
+
+    private void submitImplementation(String id, String user) throws Exception {
+        String bearer = login(user);
+        mvc.perform(post("/api/v1/specs/" + id + "/start-implementation").header("Authorization", bearer))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/specs/" + id + "/pr-links").header("Authorization", bearer)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"url\":\"https://github.com/o/r/pull/" + id + "\"}"))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/specs/" + id + "/submit-implementation").header("Authorization", bearer))
+            .andExpect(status().isOk());
+    }
+
+    private Callable<Integer> racing(String id, String action, String bearer) {
+        return () -> racingMvc.perform(post("/api/v1/specs/" + id + "/" + action).header("Authorization", bearer))
             .andReturn().getResponse().getStatus();
     }
 
@@ -105,7 +123,7 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
         String be = inReview(prd, "BE", "backend");
         String backend = login("backend");
 
-        List<Integer> statuses = race(racingApprove(be, backend), racingApprove(be, backend));
+        List<Integer> statuses = race(racing(be, "approve", backend), racing(be, "approve", backend));
 
         assertThat(statuses).containsExactlyInAnyOrder(200, 409);
         assertThat(doc(be).getStatus()).isEqualTo(SpecStatus.APPROVED);
@@ -120,10 +138,30 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
         String be = inReview(prd, "BE", "backend");
         String fe = inReview(prd, "FE", "frontend");
 
-        List<Integer> statuses = race(racingApprove(be, login("backend")), racingApprove(fe, login("frontend")));
+        List<Integer> statuses = race(racing(be, "approve", login("backend")), racing(fe, "approve", login("frontend")));
 
         assertThat(statuses).containsExactly(200, 200);
         assertThat(doc(prd).getStatus()).isEqualTo(SpecStatus.SPEC_APPROVED);
         assertThat(eventsOf(prd)).filteredOn(e -> e.getAction() == SpecAction.AGGREGATE).hasSize(1);
+    }
+
+    @Test
+    void concurrentImplementationApprovalOfTheLastTwoAreasStillAggregates() throws Exception {
+        String prd = prdWithAreas("[\"BE\",\"FE\"]");
+        String be = approved(prd, "BE", "backend");
+        String fe = approved(prd, "FE", "frontend");
+        submitImplementation(be, "backend");
+        submitImplementation(fe, "frontend");
+        String reviewer = login("reviewer");
+
+        List<Integer> statuses = race(racing(be, "approve-implementation", reviewer),
+            racing(fe, "approve-implementation", reviewer));
+
+        assertThat(statuses).containsExactly(200, 200);
+        assertThat(doc(be).getStatus()).isEqualTo(SpecStatus.IMPLEMENTED);
+        assertThat(doc(fe).getStatus()).isEqualTo(SpecStatus.IMPLEMENTED);
+        assertThat(doc(prd).getStatus()).isEqualTo(SpecStatus.IMPLEMENTED);
+        assertThat(eventsOf(prd)).filteredOn(e -> e.getAction() == SpecAction.AGGREGATE)
+            .extracting(e -> e.getToStatus()).containsExactly(SpecStatus.SPEC_APPROVED, SpecStatus.IMPLEMENTED);
     }
 }
