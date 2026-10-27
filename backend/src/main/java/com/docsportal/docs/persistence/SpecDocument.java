@@ -138,6 +138,10 @@ public class SpecDocument extends BaseEntity {
         prLinks.add(link);
     }
 
+    public void unlinkPr(SpecPrLink link) {
+        prLinks.remove(link);
+    }
+
     public void edit(String title, String body) {
         this.title = title;
         this.body = body;

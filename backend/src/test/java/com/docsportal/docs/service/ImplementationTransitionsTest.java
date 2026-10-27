@@ -89,6 +89,8 @@ class ImplementationTransitionsTest {
                 .as("%s", roles).isEqualTo(Verdict.FORBIDDEN);
             assertThat(decide(area, SpecStatus.IN_IMPLEMENTATION, SpecAction.LINK_PR, roles).verdict())
                 .as("%s", roles).isEqualTo(Verdict.FORBIDDEN);
+            assertThat(decide(area, SpecStatus.IN_IMPLEMENTATION, SpecAction.UNLINK_PR, roles).verdict())
+                .as("%s", roles).isEqualTo(Verdict.FORBIDDEN);
             assertThat(decide(area, SpecStatus.IN_IMPLEMENTATION, SpecAction.SUBMIT_IMPLEMENTATION, roles).verdict())
                 .as("%s", roles).isEqualTo(Verdict.FORBIDDEN);
         }
@@ -105,6 +107,22 @@ class ImplementationTransitionsTest {
             assertThat(decide(area, other, SpecAction.LINK_PR, roleOf(area)).verdict())
                 .as("%s", other).isEqualTo(Verdict.INVALID_STATE);
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(TechArea.class)
+    void unlinkPrOnlyWhileInImplementationSoSubmittedEvidenceStays(TechArea area) {
+        Decision d = decide(area, SpecStatus.IN_IMPLEMENTATION, SpecAction.UNLINK_PR, roleOf(area), 1);
+        assertThat(d.verdict()).isEqualTo(Verdict.ALLOWED);
+        assertThat(d.transition().to()).isEqualTo(SpecStatus.IN_IMPLEMENTATION);
+        assertThat(d.actorRole()).isEqualTo(area.role());
+
+        for (SpecStatus other : List.of(SpecStatus.APPROVED, SpecStatus.IMPL_IN_REVIEW, SpecStatus.IMPLEMENTED)) {
+            assertThat(decide(area, other, SpecAction.UNLINK_PR, roleOf(area)).verdict())
+                .as("%s", other).isEqualTo(Verdict.INVALID_STATE);
+        }
+        assertThat(decide(area, SpecStatus.IMPL_IN_REVIEW, SpecAction.UNLINK_PR, REVIEWER).verdict())
+            .isEqualTo(Verdict.FORBIDDEN);
     }
 
     @ParameterizedTest

@@ -18,6 +18,8 @@ public enum SpecAction {
     START_IMPLEMENTATION(true, false),
     // 상태가 바뀌지 않는 행이라 수렴할 목표가 없다. 같은 URL 중복은 서비스가 링크 단위로 멱등 처리한다
     LINK_PR(false, false),
+    // 연결되지 않은 URL 삭제는 서비스가 링크 단위로 멱등 처리한다
+    UNLINK_PR(false, false),
     SUBMIT_IMPLEMENTATION(true, false),
     APPROVE_IMPLEMENTATION(true, false),
     REQUEST_IMPL_CHANGES(false, true);

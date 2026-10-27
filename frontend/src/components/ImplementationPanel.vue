@@ -19,6 +19,8 @@
         <li v-for="p in spec.prLinks" :key="p.url">
           <a :href="p.url" target="_blank" rel="noopener noreferrer">{{ p.url }}</a>
           <span class="meta">{{ p.linkedBy }} · {{ formatTime(p.linkedAt) }}</span>
+          <el-button v-if="inProgress && implementer" link type="danger" size="small" :loading="busy"
+            data-test="pr-remove" @click="removePr(p.url)">삭제</el-button>
         </li>
       </ul>
 
@@ -51,7 +53,7 @@
 <script setup>
 import { canImplement, canReviewImplementation, specApiMethods } from '@/api/specs'
 import { formatTime } from '@/utils/format'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, ref } from 'vue'
 
 const props = defineProps({
@@ -106,6 +108,15 @@ const addPr = async () => {
   } finally {
     busy.value = false
   }
+}
+
+const removePr = async (url) => {
+  try {
+    await ElMessageBox.confirm(`${url}\n연결을 해제할까요?`, 'PR 연결 해제', { type: 'warning', confirmButtonText: '해제', cancelButtonText: '취소' })
+  } catch {
+    return
+  }
+  await run(() => specApiMethods.unlinkPr(props.spec.id, url), 'PR 연결을 해제했습니다.')
 }
 
 const submit = () => run(() => specApiMethods.submitImplementation(props.spec.id), '구현 검토를 요청했습니다.')

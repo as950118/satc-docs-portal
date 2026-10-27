@@ -115,6 +115,7 @@ public final class SpecTransitions {
             row(kind, SpecStatus.APPROVED,          SpecAction.START_IMPLEMENTATION,   areaRole,     SpecStatus.IN_IMPLEMENTATION,
                 Guard.PRD_SPEC_APPROVED),
             row(kind, SpecStatus.IN_IMPLEMENTATION, SpecAction.LINK_PR,                areaRole,     SpecStatus.IN_IMPLEMENTATION),
+            row(kind, SpecStatus.IN_IMPLEMENTATION, SpecAction.UNLINK_PR,              areaRole,     SpecStatus.IN_IMPLEMENTATION),
             row(kind, SpecStatus.IN_IMPLEMENTATION, SpecAction.SUBMIT_IMPLEMENTATION,  areaRole,     SpecStatus.IMPL_IN_REVIEW,
                 Guard.HAS_PR),
             row(kind, SpecStatus.IMPL_IN_REVIEW,    SpecAction.APPROVE_IMPLEMENTATION, codeReviewer, SpecStatus.IMPLEMENTED),
