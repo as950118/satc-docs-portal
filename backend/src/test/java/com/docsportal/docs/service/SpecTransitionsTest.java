@@ -11,6 +11,7 @@ import com.docsportal.docs.persistence.SpecAction;
 import com.docsportal.docs.persistence.SpecKind;
 import com.docsportal.docs.persistence.SpecStatus;
 import com.docsportal.docs.service.SpecTransitions.Decision;
+import com.docsportal.docs.service.SpecTransitions.Facts;
 import com.docsportal.docs.service.SpecTransitions.PrdFacts;
 import com.docsportal.docs.service.SpecTransitions.Verdict;
 
@@ -20,7 +21,7 @@ class SpecTransitionsTest {
     private static final List<String> ADMIN = List.of(Roles.ADMIN, Roles.USER);
 
     private static Decision decide(SpecStatus current, SpecAction action, List<String> roles) {
-        return SpecTransitions.decide(SpecKind.PRD, current, action, roles, PrdFacts.NONE);
+        return SpecTransitions.decide(SpecKind.PRD, current, action, roles, new Facts(PrdFacts.NONE, 0));
     }
 
     @Test

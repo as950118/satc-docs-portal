@@ -2,10 +2,13 @@ package com.docsportal.docs.service;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -23,12 +26,14 @@ import com.docsportal.docs.format.response.SpecSummaryResponse;
 import com.docsportal.docs.persistence.SpecAction;
 import com.docsportal.docs.persistence.SpecDocument;
 import com.docsportal.docs.persistence.SpecEvent;
+import com.docsportal.docs.persistence.SpecPrLink;
 import com.docsportal.docs.persistence.SpecKind;
 import com.docsportal.docs.persistence.SpecStatus;
 import com.docsportal.docs.persistence.TechArea;
 import com.docsportal.docs.repository.SpecDocumentRepository;
 import com.docsportal.docs.repository.SpecEventRepository;
 import com.docsportal.docs.service.SpecTransitions.Decision;
+import com.docsportal.docs.service.SpecTransitions.Facts;
 import com.docsportal.docs.service.SpecTransitions.PrdFacts;
 import com.docsportal.docs.service.SpecTransitions.Verdict;
 
@@ -42,6 +47,7 @@ import com.docsportal.docs.service.SpecTransitions.Verdict;
 public class SpecService {
 
     private static final SpecActor SYSTEM = new SpecActor("system", List.of(Roles.SYSTEM));
+    static final int MAX_PR_LINKS = 20;
 
     private final SpecDocumentRepository documents;
     private final SpecEventRepository events;
@@ -61,7 +67,7 @@ public class SpecService {
 
     @Transactional
     public SpecDetailResponse create(SpecActor actor, String title, String body) {
-        Decision decision = authorize(SpecKind.PRD, null, SpecAction.CREATE, actor, PrdFacts.NONE);
+        Decision decision = authorize(SpecKind.PRD, null, SpecAction.CREATE, actor, new Facts(PrdFacts.NONE, 0));
         requireText(title, "title");
         requireText(body, "body");
 
@@ -75,7 +81,7 @@ public class SpecService {
     @Transactional
     public SpecDetailResponse createTechDoc(SpecActor actor, String prdId, TechArea area, String title, String body) {
         SpecDocument prd = lockPrd(prdId);
-        Decision decision = authorize(area.kind(), null, SpecAction.CREATE, actor, factsOf(prd));
+        Decision decision = authorize(area.kind(), null, SpecAction.CREATE, actor, new Facts(prdFacts(prd), 0));
         requireText(title, "title");
         requireText(body, "body");
 
@@ -90,7 +96,7 @@ public class SpecService {
     @Transactional
     public SpecDetailResponse setTechAreas(SpecActor actor, String prdId, Set<TechArea> areas) {
         SpecDocument prd = lockPrd(prdId);
-        Decision decision = authorize(prd.getKind(), prd.getStatus(), SpecAction.SET_TECH_AREAS, actor, factsOf(prd));
+        Decision decision = authorize(prd.getKind(), prd.getStatus(), SpecAction.SET_TECH_AREAS, actor, factsOf(prd, prd));
         if (areas.isEmpty()) {
             throw new SpecException(HttpStatus.BAD_REQUEST, "areas 에 영역이 1개 이상 필요합니다.");
         }
@@ -126,6 +132,46 @@ public class SpecService {
         return transition(actor, id, SpecAction.REQUEST_CHANGES, comment, doc -> { });
     }
 
+    @Transactional
+    public SpecDetailResponse startImplementation(SpecActor actor, String id, String comment) {
+        return transition(actor, id, SpecAction.START_IMPLEMENTATION, comment, doc -> { });
+    }
+
+    @Transactional
+    public SpecDetailResponse submitImplementation(SpecActor actor, String id, String comment) {
+        return transition(actor, id, SpecAction.SUBMIT_IMPLEMENTATION, comment, doc -> { });
+    }
+
+    @Transactional
+    public SpecDetailResponse approveImplementation(SpecActor actor, String id, String comment) {
+        return transition(actor, id, SpecAction.APPROVE_IMPLEMENTATION, comment, doc -> { });
+    }
+
+    @Transactional
+    public SpecDetailResponse requestImplementationChanges(SpecActor actor, String id, String comment) {
+        return transition(actor, id, SpecAction.REQUEST_IMPL_CHANGES, comment, doc -> { });
+    }
+
+    /** 같은 URL 은 이미 연결된 것으로 보고 이력 없이 성공한다. 상태가 바뀌지 않으므로 집계도 하지 않는다. */
+    @Transactional
+    public SpecDetailResponse linkPr(SpecActor actor, String id, String url) {
+        SpecDocument doc = find(id);
+        SpecDocument prd = lockPrd(doc.getRootPrdId());
+        Decision decision = authorize(doc.getKind(), doc.getStatus(), SpecAction.LINK_PR, actor, factsOf(prd, doc));
+        SpecPrLink link = new SpecPrLink(prUrl(url), actor.username(), Instant.now());
+
+        if (doc.hasPrLink(link)) {
+            return detail(doc);
+        }
+        if (doc.getPrLinks().size() >= MAX_PR_LINKS) {
+            throw new SpecException(HttpStatus.CONFLICT, "PR 링크는 문서당 " + MAX_PR_LINKS + "개까지 연결할 수 있습니다.");
+        }
+        doc.linkPr(link);
+        documents.saveAndFlush(doc);
+        record(doc, decision, actor, link.getUrl());
+        return detail(doc);
+    }
+
     @Transactional(readOnly = true)
     public List<SpecSummaryResponse> list(SpecKind kind, SpecStatus status, String prdId) {
         return documents.search(kind, status, prdId).stream()
@@ -151,7 +197,7 @@ public class SpecService {
                                           Consumer<SpecDocument> change) {
         SpecDocument doc = find(id);
         SpecDocument prd = lockPrd(doc.getRootPrdId());
-        Decision decision = authorize(doc.getKind(), doc.getStatus(), action, actor, factsOf(prd));
+        Decision decision = authorize(doc.getKind(), doc.getStatus(), action, actor, factsOf(prd, doc));
         if (action.isCommentRequired()) {
             requireText(comment, "comment");
         }
@@ -172,7 +218,7 @@ public class SpecService {
      */
     private void aggregate(SpecDocument prd) {
         Decision decision = SpecTransitions.decide(prd.getKind(), prd.getStatus(), SpecAction.AGGREGATE,
-            SYSTEM.roles(), factsOf(prd));
+            SYSTEM.roles(), factsOf(prd, prd));
         if (decision.verdict() != Verdict.ALLOWED) {
             return;
         }
@@ -181,14 +227,18 @@ public class SpecService {
         record(prd, decision, SYSTEM, null);
     }
 
-    private PrdFacts factsOf(SpecDocument prd) {
+    private Facts factsOf(SpecDocument prd, SpecDocument subject) {
+        return new Facts(prdFacts(prd), subject.getPrLinks().size());
+    }
+
+    private PrdFacts prdFacts(SpecDocument prd) {
         Map<SpecKind, SpecStatus> techDocs = new EnumMap<>(SpecKind.class);
         documents.findByPrdIdOrderByCreatedAtAsc(prd.getId()).forEach(d -> techDocs.put(d.getKind(), d.getStatus()));
         return new PrdFacts(prd.getStatus(), prd.getTechAreas(), techDocs);
     }
 
-    private Decision authorize(SpecKind kind, SpecStatus current, SpecAction action, SpecActor actor, PrdFacts prd) {
-        Decision decision = SpecTransitions.decide(kind, current, action, actor.roles(), prd);
+    private Decision authorize(SpecKind kind, SpecStatus current, SpecAction action, SpecActor actor, Facts facts) {
+        Decision decision = SpecTransitions.decide(kind, current, action, actor.roles(), facts);
         return switch (decision.verdict()) {
             case ALLOWED, ALREADY_DONE -> decision;
             case FORBIDDEN -> throw new SpecException(HttpStatus.FORBIDDEN,
@@ -224,6 +274,28 @@ public class SpecService {
 
     private SpecDetailResponse detail(SpecDocument doc) {
         return SpecDetailResponse.from(doc, events.findBySpecIdOrderByAtAscIdAsc(doc.getId()));
+    }
+
+    private static String prUrl(String raw) {
+        requireText(raw, "url");
+        String url = raw.strip();
+        if (url.length() > SpecPrLink.MAX_URL_LENGTH) {
+            throw new SpecException(HttpStatus.BAD_REQUEST, "url 은 " + SpecPrLink.MAX_URL_LENGTH + "자 이하여야 합니다.");
+        }
+        if (!isWebUrl(url)) {
+            throw new SpecException(HttpStatus.BAD_REQUEST, "url 은 http 또는 https 주소여야 합니다: " + url);
+        }
+        return url;
+    }
+
+    private static boolean isWebUrl(String url) {
+        try {
+            URI uri = new URI(url);
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+            return (scheme.equals("http") || scheme.equals("https")) && uri.getHost() != null;
+        } catch (URISyntaxException e) {
+            return false;
+        }
     }
 
     private static void requireText(String value, String field) {

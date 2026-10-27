@@ -17,6 +17,7 @@ import com.docsportal.docs.persistence.SpecKind;
 import com.docsportal.docs.persistence.SpecStatus;
 import com.docsportal.docs.persistence.TechArea;
 import com.docsportal.docs.service.SpecTransitions.Decision;
+import com.docsportal.docs.service.SpecTransitions.Facts;
 import com.docsportal.docs.service.SpecTransitions.Guard;
 import com.docsportal.docs.service.SpecTransitions.PrdFacts;
 import com.docsportal.docs.service.SpecTransitions.Verdict;
@@ -38,8 +39,12 @@ class TechTransitionsTest {
         return new PrdFacts(SpecStatus.PRD_APPROVED, areas, techDocs);
     }
 
+    private static Decision decide(SpecKind kind, SpecStatus current, SpecAction action, List<String> roles, PrdFacts prd) {
+        return SpecTransitions.decide(kind, current, action, roles, new Facts(prd, 0));
+    }
+
     private static Decision decide(TechArea area, SpecStatus current, SpecAction action, List<String> roles) {
-        return SpecTransitions.decide(area.kind(), current, action, roles, approvedPrd(EnumSet.of(area), Map.of()));
+        return decide(area.kind(), current, action, roles, approvedPrd(EnumSet.of(area), Map.of()));
     }
 
     @ParameterizedTest
@@ -76,7 +81,7 @@ class TechTransitionsTest {
             approvedPrd(EnumSet.of(area), Map.of(area.kind(), SpecStatus.CHANGES_REQUESTED)), Guard.AREA_VACANT);
 
         cases.forEach((prd, guard) -> {
-            Decision d = SpecTransitions.decide(area.kind(), null, SpecAction.CREATE, writer, prd);
+            Decision d = decide(area.kind(), null, SpecAction.CREATE, writer, prd);
             assertThat(d.verdict()).as("%s", prd).isEqualTo(Verdict.PRECONDITION_FAILED);
             assertThat(d.failedGuard()).as("%s", prd).isEqualTo(guard);
         });
@@ -85,7 +90,7 @@ class TechTransitionsTest {
     @Test
     void createGuardsDoNotOverrideForbidden() {
         PrdFacts draftPrd = new PrdFacts(SpecStatus.DRAFT, Set.of(), Map.of());
-        assertThat(SpecTransitions.decide(SpecKind.TECH_FE, null, SpecAction.CREATE, roleOf(TechArea.BE), draftPrd).verdict())
+        assertThat(decide(SpecKind.TECH_FE, null, SpecAction.CREATE, roleOf(TechArea.BE), draftPrd).verdict())
             .isEqualTo(Verdict.FORBIDDEN);
     }
 
@@ -151,20 +156,20 @@ class TechTransitionsTest {
     @Test
     void plannerSetsTechAreasOnlyWhilePrdApproved() {
         PrdFacts none = PrdFacts.NONE;
-        Decision d = SpecTransitions.decide(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.SET_TECH_AREAS, PLANNER, none);
+        Decision d = decide(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.SET_TECH_AREAS, PLANNER, none);
         assertThat(d.verdict()).isEqualTo(Verdict.ALLOWED);
         assertThat(d.transition().to()).isEqualTo(SpecStatus.PRD_APPROVED);
 
         for (SpecStatus other : List.of(SpecStatus.DRAFT, SpecStatus.SPEC_APPROVED)) {
-            assertThat(SpecTransitions.decide(SpecKind.PRD, other, SpecAction.SET_TECH_AREAS, PLANNER, none).verdict())
+            assertThat(decide(SpecKind.PRD, other, SpecAction.SET_TECH_AREAS, PLANNER, none).verdict())
                 .as("%s", other).isEqualTo(Verdict.INVALID_STATE);
         }
-        assertThat(SpecTransitions.decide(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.SET_TECH_AREAS,
+        assertThat(decide(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.SET_TECH_AREAS,
             roleOf(TechArea.BE), none).verdict()).isEqualTo(Verdict.FORBIDDEN);
     }
 
     private static Decision aggregate(SpecStatus prdStatus, Set<TechArea> areas, Map<SpecKind, SpecStatus> techDocs) {
-        return SpecTransitions.decide(SpecKind.PRD, prdStatus, SpecAction.AGGREGATE, SYSTEM,
+        return decide(SpecKind.PRD, prdStatus, SpecAction.AGGREGATE, SYSTEM,
             new PrdFacts(prdStatus, areas, techDocs));
     }
 
@@ -190,7 +195,10 @@ class TechTransitionsTest {
     @Test
     void aggregateIsIdempotentAndNotBeforePrdApproval() {
         Map<SpecKind, SpecStatus> beApproved = Map.of(SpecKind.TECH_BE, SpecStatus.APPROVED);
-        assertThat(aggregate(SpecStatus.SPEC_APPROVED, EnumSet.of(TechArea.BE), beApproved).verdict())
+        Map<SpecKind, SpecStatus> beImplemented = Map.of(SpecKind.TECH_BE, SpecStatus.IMPLEMENTED);
+        assertThat(aggregate(SpecStatus.SPEC_APPROVED, EnumSet.of(TechArea.BE), beApproved).failedGuard())
+            .isEqualTo(Guard.ALL_AREAS_IMPLEMENTED);
+        assertThat(aggregate(SpecStatus.IMPLEMENTED, EnumSet.of(TechArea.BE), beImplemented).verdict())
             .isEqualTo(Verdict.ALREADY_DONE);
         assertThat(aggregate(SpecStatus.DRAFT, EnumSet.of(TechArea.BE), beApproved).verdict())
             .isEqualTo(Verdict.INVALID_STATE);
@@ -199,7 +207,7 @@ class TechTransitionsTest {
     @Test
     void noUserRoleCanAggregate() {
         for (String role : List.of(Roles.PLANNER, Roles.ADMIN, Roles.BACKEND, Roles.FRONTEND, Roles.DATA)) {
-            assertThat(SpecTransitions.decide(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.AGGREGATE, List.of(role),
+            assertThat(decide(SpecKind.PRD, SpecStatus.PRD_APPROVED, SpecAction.AGGREGATE, List.of(role),
                 approvedPrd(EnumSet.of(TechArea.BE), Map.of(SpecKind.TECH_BE, SpecStatus.APPROVED))).verdict())
                 .as(role).isEqualTo(Verdict.FORBIDDEN);
         }
