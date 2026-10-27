@@ -4,7 +4,7 @@
       <div class="title-line">
         <el-button link @click="$router.push(`/specs?kind=${kind || 'PRD'}`)">&larr; 목록</el-button>
         <h2>{{ isNew ? `새 ${kindMeta?.label || '기술문서'}` : kindMeta?.label }}</h2>
-        <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" data-test="status-tag">
+        <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" effect="dark" data-test="status-tag">
           {{ SPEC_STATUS[spec.status]?.label || spec.status }}
         </el-tag>
         <el-tag v-if="spec?.status === 'APPROVED'" type="success" effect="dark" data-test="approved-badge">승인됨</el-tag>
