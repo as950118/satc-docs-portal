@@ -51,8 +51,8 @@
       <h3>이력</h3>
       <el-timeline data-test="events">
         <el-timeline-item v-for="(ev, i) in spec.events" :key="i" :timestamp="formatTime(ev.at)" placement="top">
-          <strong>{{ ev.action }}</strong>
-          <span v-if="ev.toStatus"> {{ ev.fromStatus ? `${ev.fromStatus} → ` : '' }}{{ ev.toStatus }}</span>
+          <strong>{{ actionLabel(ev.action) }}</strong>
+          <span v-if="ev.toStatus" class="transition">{{ ev.fromStatus ? `${statusLabel(ev.fromStatus)} → ` : '' }}{{ statusLabel(ev.toStatus) }}</span>
           <div class="meta">
             <template v-if="ev.action === 'AGGREGATE'">시스템 (PRD 자동 집계)</template>
             <template v-else>{{ ev.actor }}<span v-if="ev.actorRole"> ({{ ev.actorRole }})</span></template>
@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { AREA_META, SPEC_KIND, SPEC_STATUS, canAuthorTech, canReview, specApiMethods } from '@/api/specs'
+import { AREA_META, SPEC_KIND, SPEC_STATUS, actionLabel, canAuthorTech, canReview, specApiMethods, statusLabel } from '@/api/specs'
 import ImplementationPanel from '@/components/ImplementationPanel.vue'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
@@ -216,6 +216,7 @@ watch(() => [route.params.id, route.params.prdId, route.query.area], load, { imm
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .title-line { display: flex; align-items: center; gap: 12px; }
 .actions { display: flex; gap: 12px; }
+.transition { margin-left: 6px; }
 .prd-link { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .notice, .title-input { margin-bottom: 16px; }
 .panes { display: flex; gap: 16px; }
