@@ -2,7 +2,7 @@ import axios from 'axios'
 import { authUtils } from './auth'
 
 const specApi = axios.create({
-  baseURL: 'http://localhost:8080/api/v1/specs', // Local (docker-compose)
+  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/v1/specs`,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 })
@@ -54,6 +54,12 @@ export const specApiMethods = {
   createTechDoc: (prdId, area, title, body) => call(specApi.post(`/${prdId}/tech-docs`, { area, title, body })),
   listTechDocs: (prdId) => call(specApi.get(`/${prdId}/tech-docs`)),
   getTechTemplate: (area) => call(specApi.get(`/templates/tech/${area}`)),
+  startImplementation: (id, comment) => call(specApi.post(`/${id}/start-implementation`, comment ? { comment } : {})),
+  linkPr: (id, url) => call(specApi.post(`/${id}/pr-links`, { url })),
+  submitImplementation: (id, comment) => call(specApi.post(`/${id}/submit-implementation`, comment ? { comment } : {})),
+  approveImplementation: (id, comment) => call(specApi.post(`/${id}/approve-implementation`, comment ? { comment } : {})),
+  requestImplementationChanges: (id, comment) =>
+    call(specApi.post(`/${id}/request-implementation-changes`, { comment })),
 }
 
 export const SPEC_STATUS = {
@@ -63,6 +69,17 @@ export const SPEC_STATUS = {
   IN_REVIEW: { label: '검토 중', tag: 'primary' },
   CHANGES_REQUESTED: { label: '변경 요청', tag: 'danger' },
   APPROVED: { label: '승인', tag: 'success' },
+  IN_IMPLEMENTATION: { label: '구현 중', tag: 'primary' },
+  IMPL_IN_REVIEW: { label: '구현 검토 중', tag: 'warning' },
+  IMPLEMENTED: { label: '구현 완료', tag: 'success' },
+}
+
+export const EVENT_LABEL = {
+  START_IMPLEMENTATION: '구현 시작',
+  LINK_PR: 'PR 연결',
+  SUBMIT_IMPLEMENTATION: '구현 검토 요청',
+  APPROVE_IMPLEMENTATION: '구현 승인',
+  REQUEST_IMPL_CHANGES: '구현 변경 요청',
 }
 
 export const SPEC_KIND = {
@@ -87,3 +104,9 @@ export const canReview = (kind) => {
 
 // 작성과 제출은 PLANNER 또는 영역 역할, 검토(승인/변경 요청)는 영역 역할만 가능하다.
 export const canAuthorTech = (kind) => canPlan() || canReview(kind)
+
+// 구현 승인과 변경 요청은 영역과 무관하게 REVIEWER 역할만 가능하다.
+export const canReviewImplementation = () => authUtils.hasRole('REVIEWER')
+
+// 구현 시작, PR 연결, 구현 검토 요청은 해당 영역 역할만 가능하다.
+export const canImplement = (kind) => canReview(kind)
