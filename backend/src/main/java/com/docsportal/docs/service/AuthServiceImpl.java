@@ -22,7 +22,10 @@ public class AuthServiceImpl implements AuthService {
         "admin", new UserData("admin", "admin123", "admin@example.com", "관리자", Arrays.asList(Roles.ADMIN, Roles.USER)),
         "editor", new UserData("editor", "editor123", "editor@example.com", "편집자", Arrays.asList(Roles.ADMIN, Roles.USER)),
         "viewer", new UserData("viewer", "viewer123", "viewer@example.com", "조회자", Arrays.asList(Roles.USER)),
-        "planner", new UserData("planner", "planner123", "planner@example.com", "기획자", Arrays.asList(Roles.PLANNER, Roles.USER))
+        "planner", new UserData("planner", "planner123", "planner@example.com", "기획자", Arrays.asList(Roles.PLANNER, Roles.USER)),
+        "backend", new UserData("backend", "backend123", "backend@example.com", "백엔드 개발자", Arrays.asList(Roles.BACKEND, Roles.USER)),
+        "frontend", new UserData("frontend", "frontend123", "frontend@example.com", "프론트엔드 개발자", Arrays.asList(Roles.FRONTEND, Roles.USER)),
+        "data", new UserData("data", "data123", "data@example.com", "데이터 엔지니어", Arrays.asList(Roles.DATA, Roles.USER))
     );
     
     // 현재 로그인한 사용자 저장 (세션 대신 간단한 메모리 저장)

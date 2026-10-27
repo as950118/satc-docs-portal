@@ -11,6 +11,7 @@ import com.docsportal.docs.persistence.SpecAction;
 import com.docsportal.docs.persistence.SpecKind;
 import com.docsportal.docs.persistence.SpecStatus;
 import com.docsportal.docs.service.SpecTransitions.Decision;
+import com.docsportal.docs.service.SpecTransitions.PrdFacts;
 import com.docsportal.docs.service.SpecTransitions.Verdict;
 
 class SpecTransitionsTest {
@@ -19,7 +20,7 @@ class SpecTransitionsTest {
     private static final List<String> ADMIN = List.of(Roles.ADMIN, Roles.USER);
 
     private static Decision decide(SpecStatus current, SpecAction action, List<String> roles) {
-        return SpecTransitions.decide(SpecKind.PRD, current, action, roles);
+        return SpecTransitions.decide(SpecKind.PRD, current, action, roles, PrdFacts.NONE);
     }
 
     @Test
@@ -69,7 +70,10 @@ class SpecTransitionsTest {
 
     @Test
     void nonPlannerIsForbiddenForEveryAction() {
-        for (SpecAction action : SpecAction.values()) {
+        List<SpecAction> prdActions = SpecTransitions.TABLE.stream()
+            .filter(t -> t.kind() == SpecKind.PRD && !t.roles().contains(Roles.SYSTEM))
+            .map(SpecTransitions.Transition::action).distinct().toList();
+        for (SpecAction action : prdActions) {
             for (SpecStatus status : new SpecStatus[] {null, SpecStatus.DRAFT, SpecStatus.PRD_APPROVED}) {
                 assertThat(decide(status, action, ADMIN).verdict())
                     .as("%s from %s", action, status)
