@@ -1,6 +1,7 @@
 package com.docsportal.docs.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -31,6 +32,7 @@ import com.docsportal.docs.persistence.SpecAction;
 import com.docsportal.docs.persistence.SpecStatus;
 import com.docsportal.docs.repository.SpecDocumentRepository;
 import com.docsportal.docs.service.SpecService;
+import com.jayway.jsonpath.JsonPath;
 
 /**
  * 두 요청이 모두 문서를 읽은 뒤에야 진행하도록 findById 직후에 장벽을 둬서, 경합 순서를 매번 같게 만든다.
@@ -111,6 +113,12 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
             .andReturn().getResponse().getStatus();
     }
 
+    private Callable<Integer> racingLink(String id, String bearer, String url) {
+        return () -> racingMvc.perform(post("/api/v1/specs/" + id + "/pr-links").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"url\":\"" + url + "\"}"))
+            .andReturn().getResponse().getStatus();
+    }
+
     private List<Integer> race(Callable<Integer> a, Callable<Integer> b) throws Exception {
         Future<Integer> first = pool.submit(a);
         Future<Integer> second = pool.submit(b);
@@ -163,5 +171,27 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
         assertThat(doc(prd).getStatus()).isEqualTo(SpecStatus.IMPLEMENTED);
         assertThat(eventsOf(prd)).filteredOn(e -> e.getAction() == SpecAction.AGGREGATE)
             .extracting(e -> e.getToStatus()).containsExactly(SpecStatus.SPEC_APPROVED, SpecStatus.IMPLEMENTED);
+    }
+
+    @Test
+    void linkRacingSubmitImplementationNeverLandsOnADocInReview() throws Exception {
+        String prd = prdWithAreas("[\"BE\"]");
+        String be = approved(prd, "BE", "backend");
+        String backend = login("backend");
+        mvc.perform(post("/api/v1/specs/" + be + "/start-implementation").header("Authorization", backend))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/specs/" + be + "/pr-links").header("Authorization", backend)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"url\":\"https://github.com/o/r/pull/1\"}"))
+            .andExpect(status().isOk());
+
+        List<Integer> statuses = race(racing(be, "submit-implementation", backend),
+            racingLink(be, backend, "https://github.com/o/r/pull/2"));
+
+        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
+        int links = JsonPath.read(mvc.perform(get("/api/v1/specs/" + be).header("Authorization", backend))
+            .andReturn().getResponse().getContentAsString(), "$.data.prLinks.length()");
+        SpecStatus status = doc(be).getStatus();
+        assertThat(status == SpecStatus.IMPL_IN_REVIEW ? links == 1 : status == SpecStatus.IN_IMPLEMENTATION && links == 2)
+            .as("status=%s links=%d", status, links).isTrue();
     }
 }
