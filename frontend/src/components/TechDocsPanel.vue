@@ -22,15 +22,16 @@
       <el-card v-for="a in declared" :key="a.area" shadow="never" :data-test="`card-${a.area}`">
         <template #header>
           <strong>{{ a.label }}</strong>
-          <el-tag v-if="docs[a.area]" :type="SPEC_STATUS[docs[a.area].status]?.tag" class="status">
+          <el-tag v-if="!docs" type="info" class="status" data-test="docs-loading">불러오는 중</el-tag>
+          <el-tag v-else-if="docs[a.area]" :type="SPEC_STATUS[docs[a.area].status]?.tag" class="status">
             {{ SPEC_STATUS[docs[a.area].status]?.label || docs[a.area].status }}
           </el-tag>
           <el-tag v-else type="info" class="status">미작성</el-tag>
         </template>
-        <router-link v-if="docs[a.area]" :to="`/tech-docs/${docs[a.area].id}`">{{ docs[a.area].title }}</router-link>
-        <el-button v-else-if="canAuthorTech(a.kind) && spec.status === 'PRD_APPROVED'" size="small" type="primary"
+        <router-link v-if="docs?.[a.area]" :to="`/tech-docs/${docs[a.area].id}`">{{ docs[a.area].title }}</router-link>
+        <el-button v-else-if="docs && canAuthorTech(a.kind) && spec.status === 'PRD_APPROVED'" size="small" type="primary"
           :data-test="`write-${a.area}`" @click="$router.push(`/specs/${spec.id}/tech/new?area=${a.area}`)">작성</el-button>
-        <span v-else class="meta">작성된 문서가 없습니다.</span>
+        <span v-else-if="docs" class="meta">작성된 문서가 없습니다.</span>
       </el-card>
     </div>
   </section>
@@ -48,12 +49,13 @@ const STEP_ACTIVE = { PRD_APPROVED: 1, SPEC_APPROVED: 2, IMPLEMENTED: 3 }
 
 const planner = canPlan()
 const selected = ref([...props.spec.techAreas])
-const docs = ref({})
+const docs = ref(null)
 const saving = ref(false)
 
 const declared = computed(() => TECH_AREAS.filter((a) => props.spec.techAreas.includes(a.area)))
 
 const loadDocs = async () => {
+  docs.value = null
   try {
     const list = await specApiMethods.listTechDocs(props.spec.id)
     docs.value = Object.fromEntries(list.map((d) => [TECH_AREAS.find((a) => a.kind === d.kind)?.area, d]))

@@ -15,6 +15,10 @@ specApi.interceptors.request.use((config) => {
   return config
 })
 
+// 백엔드 오류 메시지에 섞인 상태·행동 enum 이름을 한글 라벨로 바꾼다.
+const localize = (message) =>
+  message.replace(/\b[A-Z][A-Z_]+\b/g, (token) => ACTION_LABEL[token] || SPEC_STATUS[token]?.label || token)
+
 export class SpecApiError extends Error {
   constructor(status, message) {
     super(message)
@@ -36,7 +40,7 @@ const call = async (request) => {
         window.location.href = '/login'
       }
     }
-    throw new SpecApiError(status, message)
+    throw new SpecApiError(status, localize(message))
   }
 }
 
@@ -74,13 +78,24 @@ export const SPEC_STATUS = {
   IMPLEMENTED: { label: '구현 완료', tag: 'success' },
 }
 
-export const EVENT_LABEL = {
+export const ACTION_LABEL = {
+  CREATE: '생성',
+  EDIT: '수정',
+  SUBMIT: '검토 요청',
+  APPROVE: '승인',
+  REQUEST_CHANGES: '변경 요청',
+  SET_TECH_AREAS: '필요 영역 선언',
+  AGGREGATE: '자동 집계',
   START_IMPLEMENTATION: '구현 시작',
   LINK_PR: 'PR 연결',
   SUBMIT_IMPLEMENTATION: '구현 검토 요청',
   APPROVE_IMPLEMENTATION: '구현 승인',
   REQUEST_IMPL_CHANGES: '구현 변경 요청',
 }
+
+export const actionLabel = (action) => ACTION_LABEL[action] || action
+
+export const statusLabel = (status) => SPEC_STATUS[status]?.label || status
 
 export const SPEC_KIND = {
   PRD: { label: 'PRD' },
