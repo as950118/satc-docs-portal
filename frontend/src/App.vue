@@ -527,3 +527,11 @@ body {
 }
 </style>
 
+
+<style>
+/* 전역 reset이 목록 기호와 표 선을 지우므로 스펙 미리보기에서만 복원한다. */
+.markdown-body ul { list-style: disc; padding-left: 24px; }
+.markdown-body ol { list-style: decimal; padding-left: 24px; }
+.markdown-body table { border-collapse: collapse; margin: 8px 0; }
+.markdown-body th, .markdown-body td { border: 1px solid #dcdfe6; padding: 4px 10px; }
+</style>

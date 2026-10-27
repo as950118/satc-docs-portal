@@ -4,7 +4,7 @@
       <div class="title-line">
         <el-button link @click="$router.push(`/specs?kind=${kind || 'PRD'}`)">&larr; 목록</el-button>
         <h2>{{ isNew ? `새 ${kindMeta?.label || '기술문서'}` : kindMeta?.label }}</h2>
-        <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" data-test="status-tag">
+        <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" effect="dark" data-test="status-tag">
           {{ SPEC_STATUS[spec.status]?.label || spec.status }}
         </el-tag>
         <el-tag v-if="spec?.status === 'APPROVED'" type="success" effect="dark" data-test="approved-badge">승인됨</el-tag>
@@ -23,7 +23,7 @@
       <el-tag size="small" :type="SPEC_STATUS[prd.status]?.tag">{{ SPEC_STATUS[prd.status]?.label || prd.status }}</el-tag>
     </div>
 
-    <el-alert v-if="spec && !authorRole && spec.status !== 'IN_REVIEW'" type="info" :closable="false" show-icon class="notice"
+    <el-alert v-if="spec && !authorRole && !inImpl && spec.status !== 'IN_REVIEW'" type="info" :closable="false" show-icon class="notice"
       title="PLANNER 또는 해당 영역 역할만 작성할 수 있습니다. 읽기 전용으로 표시됩니다." />
     <el-alert v-else-if="spec?.status === 'IN_REVIEW' && !reviewer" type="info" :closable="false" show-icon class="notice"
       :title="`검토 중입니다. ${kindMeta?.label} 영역 역할만 승인하거나 변경을 요청할 수 있습니다.`" />
@@ -44,6 +44,9 @@
       <div v-if="commentError" class="error" data-test="comment-error">{{ commentError }}</div>
     </div>
 
+    <ImplementationPanel v-if="spec && (spec.status === 'APPROVED' || inImpl)" :spec="spec" :prd-status="prd?.status"
+      @updated="onImplUpdated" @reload="load" />
+
     <template v-if="spec">
       <h3>이력</h3>
       <el-timeline data-test="events">
@@ -63,6 +66,7 @@
 
 <script setup>
 import { AREA_META, SPEC_KIND, SPEC_STATUS, canAuthorTech, canReview, specApiMethods } from '@/api/specs'
+import ImplementationPanel from '@/components/ImplementationPanel.vue'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
@@ -91,12 +95,19 @@ const reviewer = computed(() => canReview(kind.value))
 const editable = computed(() =>
   authorRole.value && (isNew.value || ['DRAFT', 'CHANGES_REQUESTED'].includes(spec.value?.status)))
 const canDecide = computed(() => reviewer.value && spec.value?.status === 'IN_REVIEW')
+const inImpl = computed(() => ['IN_IMPLEMENTATION', 'IMPL_IN_REVIEW', 'IMPLEMENTED'].includes(spec.value?.status))
 const rendered = computed(() => md.render(body.value || ''))
 
 const apply = (data) => {
   spec.value = data
   title.value = data.title
   body.value = data.body
+}
+
+// 구현 승인으로 PRD가 IMPLEMENTED로 집계될 수 있으므로 상위 PRD를 다시 읽는다.
+const onImplUpdated = async (data) => {
+  apply(data)
+  await loadPrd(data.prdId)
 }
 
 const loadPrd = async (id) => {

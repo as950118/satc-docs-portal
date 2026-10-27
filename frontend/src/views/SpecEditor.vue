@@ -5,7 +5,7 @@
         <el-button link @click="$router.push('/specs')">&larr; 목록</el-button>
         <h2>{{ isNew ? '새 PRD' : '' }}</h2>
         <template v-if="spec">
-          <el-tag :type="SPEC_STATUS[spec.status]?.tag" data-test="status-tag">
+          <el-tag :type="SPEC_STATUS[spec.status]?.tag" effect="dark" data-test="status-tag">
             {{ SPEC_STATUS[spec.status]?.label || spec.status }}
           </el-tag>
           <el-tag v-if="approved" type="success" effect="dark" data-test="approved-badge">승인됨</el-tag>
@@ -37,7 +37,10 @@
         <el-timeline-item v-for="(ev, i) in spec.events" :key="i" :timestamp="formatTime(ev.at)" placement="top">
           <strong>{{ ev.action }}</strong>
           <span v-if="ev.toStatus"> {{ ev.fromStatus ? `${ev.fromStatus} → ` : '' }}{{ ev.toStatus }}</span>
-          <div class="meta">{{ ev.actor }}<span v-if="ev.actorRole"> ({{ ev.actorRole }})</span></div>
+          <div class="meta">
+            <template v-if="ev.action === 'AGGREGATE'">시스템 (PRD 자동 집계)</template>
+            <template v-else>{{ ev.actor }}<span v-if="ev.actorRole"> ({{ ev.actorRole }})</span></template>
+          </div>
           <div v-if="ev.comment" class="meta">{{ ev.comment }}</div>
         </el-timeline-item>
       </el-timeline>
@@ -66,7 +69,7 @@ const body = ref('')
 const loading = ref(false)
 const saving = ref(false)
 
-const approved = computed(() => ['PRD_APPROVED', 'SPEC_APPROVED'].includes(spec.value?.status))
+const approved = computed(() => ['PRD_APPROVED', 'SPEC_APPROVED', 'IMPLEMENTED'].includes(spec.value?.status))
 const editable = computed(() => planner && (isNew.value || spec.value?.status === 'DRAFT'))
 const canApprove = computed(() => planner && spec.value?.status === 'DRAFT')
 const rendered = computed(() => md.render(body.value || ''))
