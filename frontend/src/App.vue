@@ -19,14 +19,8 @@
             <!-- 주요 사이트 링크들 -->
             <div class="sites-links">
               <router-link to="/specs" class="site-link">PRD</router-link>
-              <a href="#" @click.prevent="openVpnSite('jenkins')" class="site-link vpn-link">
-                Jenkins <span class="vpn-text">(VPN)</span>
-              </a>
-              <a href="#" @click.prevent="openVpnSite('argocd')" class="site-link vpn-link">
-                ArgoCD <span class="vpn-text">(VPN)</span>
-              </a>
-              <a href="#" @click.prevent="openVpnSite('common-code')" class="site-link vpn-link">
-                공통코드 <span class="vpn-text">(VPN)</span>
+              <a v-for="site in toolLinks" :key="site.key" href="#" @click.prevent="openVpnSite(site)" class="site-link vpn-link">
+                {{ site.label }} <span class="vpn-text">(VPN)</span>
               </a>
             </div>
 
@@ -70,6 +64,7 @@
 
 <script>
 import { authApiMethods, authUtils } from '@/api/auth'
+import { toolLinks } from '@/config'
 import { ArrowDown, Setting, SwitchButton, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -134,27 +129,9 @@ export default {
     }
 
     // VPN 사이트 열기
-    const openVpnSite = (siteType) => {
-      const sites = {
-        'jenkins': {
-          url: 'http://172.20.30.230:8080',
-          name: 'Jenkins'
-        },
-        'argocd': {
-          url: 'http://172.20.30.169:32587/login',
-          name: 'ArgoCD'
-        },
-        'common-code': {
-          url: 'http://172.20.30.63:3000/',
-          name: '공통 코드 관리 시스템'
-        }
-      }
-
-      const site = sites[siteType]
-      if (site) {
-        ElMessage.info(`새 창에서 ${site.name}을(를) 열었습니다.`)
-        window.open(site.url, '_blank', 'noopener,noreferrer')
-      }
+    const openVpnSite = (site) => {
+      ElMessage.info(`새 창에서 ${site.name}을(를) 열었습니다.`)
+      window.open(site.url, '_blank', 'noopener,noreferrer')
     }
 
     // 공통코드 메시지 표시
@@ -211,6 +188,7 @@ export default {
       userInfo,
       goToHome,
       handleUserCommand,
+      toolLinks,
       openVpnSite,
       showCommonCodeMessage,
       handleLogout,

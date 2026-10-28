@@ -55,7 +55,7 @@ npm run build
 docker build -t docs-front .
 
 # 컨테이너 실행
-docker run -p 80:80 docs-front
+docker run -p 80:80 -e VITE_API_BASE_URL=http://localhost:8080 docs-front
 ```
 
 브라우저에서 `http://localhost`로 접속하여 확인할 수 있습니다.
@@ -163,23 +163,16 @@ src/
 
 ## 환경 변수 설정
 
-Docker 컨테이너 실행 시 다음 환경 변수를 설정할 수 있습니다:
+컨테이너는 기동할 때 환경 변수로 `/config.js`를 만들므로 이미지 하나를 여러 환경에 쓸 수 있습니다. `VITE_API_BASE_URL`이 비어 있으면 컨테이너가 기동하지 않습니다.
 
 ```bash
 docker run -p 80:80 \
-  -e VITE_API_BASE_URL=http://your-api-server:8080/api \
-  -e VITE_MINIO_ENDPOINT=your-minio-server \
-  -e VITE_MINIO_PORT=9000 \
-  -e VITE_MINIO_BUCKET_NAME=docs \
+  -e VITE_API_BASE_URL=https://api.docs.example.com \
+  -e VITE_JENKINS_URL=https://jenkins.example.com \
   docs-front
 ```
 
-### 주요 환경 변수
-- `VITE_API_BASE_URL`: 백엔드 API 서버 URL
-- `VITE_MINIO_ENDPOINT`: MinIO 서버 엔드포인트
-- `VITE_MINIO_PORT`: MinIO 서버 포트
-- `VITE_MINIO_USE_SSL`: SSL 사용 여부 (true/false)
-- `VITE_MINIO_BUCKET_NAME`: MinIO 버킷 이름
+`npm run dev`/`npm run build`에서는 같은 이름을 `.env.local` 등 Vite 환경 변수로 읽습니다. 변수 목록과 기본값은 루트 README의 환경변수 표를 보세요.
 
 ## 배포 가이드
 
@@ -213,6 +206,7 @@ docker stack deploy -c docker-compose.prod.yml docs-front
 docker run -d --name docs-front \
   --restart unless-stopped \
   -p 80:80 \
+  -e VITE_API_BASE_URL=https://api.docs.example.com \
   your-registry/docs-front:v1.0.0
 ```
 

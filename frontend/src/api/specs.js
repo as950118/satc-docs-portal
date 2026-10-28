@@ -1,8 +1,10 @@
 import axios from 'axios'
+
+import { apiBaseUrl } from '@/config'
 import { authUtils } from './auth'
 
 const specApi = axios.create({
-  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/v1/specs`,
+  baseURL: `${apiBaseUrl}/api/v1/specs`,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 })

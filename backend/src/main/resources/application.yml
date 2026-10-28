@@ -21,7 +21,8 @@ minio:
   bucket-name: docs
 
 cors:
-  host: http://127.0.0.1:3000
+  # 프론트엔드 Origin 목록(쉼표 구분). 비어 있으면 기동 실패, dev 프로필은 localhost:3000 을 쓴다
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 external:
   api:

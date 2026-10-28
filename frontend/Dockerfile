@@ -27,6 +27,9 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # 커스텀 Nginx 설정 파일 복사 (SPA 라우팅 지원)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# 기동 시 환경변수로 config.js 생성 (nginx 이미지가 /docker-entrypoint.d/*.sh 를 실행)
+COPY app-config.sh /docker-entrypoint.d/40-app-config.sh
+
 # 포트 노출
 EXPOSE 80
 
