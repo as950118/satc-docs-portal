@@ -104,17 +104,41 @@ docker compose down {service-name} -v --rmi all
 로그인(`POST /api/v1/auth/login`)은 HS256 JWT를 `token`으로, 유효 시간(초)을 `expiresIn`으로 돌려줍니다. 서버는 세션을 저장하지 않으므로 재기동해도 토큰이 유지되고, 로그아웃은 클라이언트가 토큰을 버리는 것으로 끝납니다.  
 요청마다 토큰 서명·만료를 확인한 뒤 계정을 다시 읽으므로, 계정을 비활성화(`enabled=false`)하거나 역할을 바꾸면 기존 토큰에도 바로 반영됩니다.
 
-| 환경변수 | 속성 | 기본값 | 설명 |
-|---|---|---|---|
-| `DOCS_AUTH_TOKEN_SECRET` | `docs.auth.token-secret` | 없음 | 토큰 서명 키, 32바이트 이상. 비어 있으면 기동하지 않습니다(`dev` 프로필만 예외로 기동마다 임시 키 생성). 예: `openssl rand -base64 48` |
-| `DOCS_AUTH_TOKEN_TTL` | `docs.auth.token-ttl` | `12h` | 토큰 유효 시간 |
-| `DOCS_AUTH_ADMIN_USERNAME` / `DOCS_AUTH_ADMIN_PASSWORD` | `docs.auth.initial-admin.*` | 없음 | 둘 다 설정하면 해당 username이 없을 때만 ADMIN 계정을 만듭니다. 이미 있으면 비밀번호를 바꾸지 않습니다 |
-| `DOCS_AUTH_DEV_ACCOUNTS` | `docs.auth.dev-accounts` | `false` (`dev` 프로필은 `true`) | 개발용 계정을 없을 때만 만듭니다 |
+인증 관련 환경변수(`DOCS_AUTH_*`)는 아래 환경변수 표에 있습니다.
 
 개발용 계정은 `admin`, `editor`, `viewer`, `planner`, `backend`, `frontend`, `data`, `reviewer`이고 비밀번호는 `<이름>123`입니다. 운영에서는 켜지 마세요.
 
 - 로컬 개발: `./gradlew bootRun --args='--spring.profiles.active=dev'` (임시 서명 키 + 개발용 계정)
 - 운영(docker compose): `.env`에 `DOCS_AUTH_TOKEN_SECRET`, 처음 한 번 `DOCS_AUTH_ADMIN_USERNAME`/`DOCS_AUTH_ADMIN_PASSWORD`를 설정합니다. 서명 키는 저장소에 커밋하지 마세요.
+
+---
+## ⚙️  환경변수
+docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .env`로 만들고 값을 채우세요. `.env`는 git에 올라가지 않습니다.  
+아무 값도 없으면 compose와 로컬 개발은 아래 기본값(localhost)으로 동작합니다. 운영 필수 항목은 기본값이 운영에서 맞지 않으므로 반드시 설정합니다.
+
+| 환경변수 | 계층 | 기본값 | 운영 필수 | 설명 |
+|---|---|---|:-:|---|
+| `SPRING_PROFILES_ACTIVE` | backend | 없음 (compose `satc`) | | `dev`면 임시 서명 키·개발용 계정·localhost CORS를 씁니다. 운영에서 쓰지 마세요 |
+| `SPRING_DATASOURCE_URL` | backend | `jdbc:postgresql://127.0.0.1:5432/docs` (compose는 `postgres` 컨테이너) | O | PostgreSQL 주소 |
+| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | backend | `postgres` / `postgres` (compose는 `POSTGRES_USER`/`POSTGRES_PASSWORD`) | O | DB 계정 |
+| `CORS_ALLOWED_ORIGINS` | backend | 없음 (`dev` 프로필 `http://localhost:3000,http://127.0.0.1:3000`, compose `http://localhost:3000`) | O | 브라우저 요청을 허용할 프론트엔드 Origin, 쉼표로 구분. 비어 있으면 기동하지 않습니다 |
+| `MINIO_HOST` / `MINIO_PORT` | backend | `127.0.0.1` / `9000` (compose는 `minio` 컨테이너) | O | MinIO 주소 |
+| `MINIO_CLIENT_ID` / `MINIO_CLIENT_SECRET` | backend | `minioadmin` / `minioadmin` (compose는 `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY`) | O | MinIO 계정 |
+| `MINIO_BUCKET_NAME` | backend, indexing | `docs` | | 문서 버킷 |
+| `EXTERNAL_API_HOST` / `EXTERNAL_API_PORT` | backend | `http://127.0.0.1` / `8000` (compose는 `indexing` 컨테이너) | O | indexing 서비스 주소. 업로드 알림을 보냅니다 |
+| `EXTERNAL_API_ENABLED` | backend | `true` | | `false`면 indexing 알림을 보내지 않습니다 |
+| `DOCS_SYNC_TOKEN` | backend | 없음 | | 코드→문서 동기화(`PUT /api/v1/docs/sync`) 토큰. 비어 있으면 동기화 API를 끕니다 |
+| `DOCS_AUTH_TOKEN_SECRET` | backend | 없음 | O | 로그인 토큰 서명 키, 32바이트 이상. 비어 있으면 기동하지 않습니다(`dev` 프로필만 예외로 기동마다 임시 키 생성). 예: `openssl rand -base64 48` |
+| `DOCS_AUTH_TOKEN_TTL` | backend | `12h` | | 토큰 유효 시간 |
+| `DOCS_AUTH_ADMIN_USERNAME` / `DOCS_AUTH_ADMIN_PASSWORD` | backend | 없음 | 첫 기동 | 둘 다 설정하면 해당 username이 없을 때만 ADMIN 계정을 만듭니다. 이미 있으면 비밀번호를 바꾸지 않습니다 |
+| `DOCS_AUTH_DEV_ACCOUNTS` | backend | `false` (`dev` 프로필은 `true`) | | 개발용 계정을 없을 때만 만듭니다 |
+| `VITE_API_BASE_URL` | frontend | `http://localhost:8080` (compose 동일) | O | 브라우저가 호출할 백엔드 주소. 컨테이너는 기동 시 이 값으로 `/config.js`를 만들고, 비어 있으면 기동하지 않습니다. `npm run dev`/`build`는 Vite 환경변수로 읽습니다 |
+| `VITE_JENKINS_URL` / `VITE_ARGOCD_URL` / `VITE_COMMON_CODE_URL` | frontend | 없음 | | 상단 바로가기 링크. 비어 있으면 해당 링크를 숨깁니다 |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose | `docs` / `postgres` / `postgres` | O | postgres 컨테이너 초기값이자 backend DB 계정 |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | compose | `minioadmin` / `minioadmin` | O | minio 컨테이너 루트 계정이자 backend·indexing MinIO 계정 |
+| `BACKEND_PORT` / `FRONTEND_PORT` / `INDEXING_PORT` / `POSTGRES_PORT` / `MINIO_PORT` / `MINIO_CONSOLE_PORT` | compose | `8080` / `3000` / `8000` / `5432` / `9000` / `9001` | | 호스트에 여는 포트 |
+
+indexing 서비스의 나머지 설정(`ELASTICSEARCH_HOST`, `CHUNK_SIZE` 등)은 `indexing/app/config.py`와 `docker-compose.yml`을 보세요.
 
 ---
 ## 🌈  License

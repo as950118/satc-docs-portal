@@ -53,3 +53,5 @@ build/
 bin/
 out/
 .vscode/
+.env
+.env.local
