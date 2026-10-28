@@ -156,6 +156,10 @@ export const authUtils = {
   }
 }
 
+// 로그인 뒤 돌아갈 경로. 같은 앱 안의 경로만 받아 열린 리다이렉트를 막는다
+export const safeRedirectPath = (value) =>
+  typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : '/'
+
 // 기본 export를 authApiMethods로 변경
 export { authApiMethods as authApi }
 export default authApi

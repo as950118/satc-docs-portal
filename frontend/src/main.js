@@ -4,11 +4,12 @@ import 'element-plus/dist/index.css'
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
-import { authUtils } from './api/auth'
+import { authUtils, safeRedirectPath } from './api/auth'
 import App from './App.vue'
 import DocumentView from './views/DocumentView.vue'
 import Home from './views/Home.vue'
 import Login from './views/Login.vue'
+import OAuthConsent from './views/OAuthConsent.vue'
 import SpecEditor from './views/SpecEditor.vue'
 import SpecList from './views/SpecList.vue'
 import TechDocView from './views/TechDocView.vue'
@@ -18,13 +19,13 @@ const requireAuth = (to, from, next) => {
   if (authUtils.isAuthenticated()) {
     next()
   } else {
-    next('/login')
+    next({ path: '/login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } })
   }
 }
 
 const redirectIfAuthenticated = (to, from, next) => {
   if (authUtils.isAuthenticated()) {
-    next('/')
+    next(safeRedirectPath(to.query.redirect))
   } else {
     next()
   }
@@ -49,6 +50,7 @@ const routes = [
       { path: 'tech-docs/:id', component: TechDocView }
     ]
   },
+  { path: '/oauth/consent', component: OAuthConsent, beforeEnter: requireAuth },
   { 
     path: '/document/:id', 
     component: DocumentView, 
