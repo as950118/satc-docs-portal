@@ -17,6 +17,16 @@ specApi.interceptors.request.use((config) => {
   return config
 })
 
+// 상태를 바꾸는 요청이 성공하면 스펙 목록을 들고 있는 문서 트리가 다시 읽는다.
+export const SPECS_CHANGED = 'specs-changed'
+
+specApi.interceptors.response.use((response) => {
+  if (response.config.method !== 'get') {
+    window.dispatchEvent(new Event(SPECS_CHANGED))
+  }
+  return response
+})
+
 // 백엔드 오류 메시지에 섞인 상태·행동 enum 이름을 한글 라벨로 바꾼다.
 const localize = (message) =>
   message.replace(/\b[A-Z][A-Z_]+\b/g, (token) => ACTION_LABEL[token] || SPEC_STATUS[token]?.label || token)
@@ -52,6 +62,7 @@ export const specApiMethods = {
     call(specApi.get('', {
       params: { kind: kind || undefined, status: status || undefined, prdId: prdId || undefined, allVersions: allVersions || undefined },
     })),
+  listAll: () => call(specApi.get('')),
   get: (id) => call(specApi.get(`/${id}`)),
   create: (title, body) => call(specApi.post('', { title, body })),
   update: (id, title, body) => call(specApi.put(`/${id}`, { title, body })),
@@ -123,6 +134,16 @@ export const TECH_AREAS = Object.entries(SPEC_KIND)
   .map(([kind, meta]) => ({ area: meta.area, kind, role: meta.role, label: meta.label }))
 
 export const AREA_META = Object.fromEntries(TECH_AREAS.map((a) => [a.area, a]))
+
+export const specPath = (spec) => (spec.kind === 'PRD' ? `/specs/${spec.id}` : `/tech-docs/${spec.id}`)
+
+const IMPLEMENTATION_STATUSES = ['IN_IMPLEMENTATION', 'IMPL_IN_REVIEW', 'IMPLEMENTED']
+
+// 구현 전 기술문서는 재검토로 돌아가고, 구현 중인 기술문서는 영향 확인이 남는다.
+export const prdChangedLabel = (spec) => {
+  if (!spec.prdChanged) return null
+  return IMPLEMENTATION_STATUSES.includes(spec.status) ? 'PRD 변경 확인 필요' : 'PRD 변경'
+}
 
 export const canPlan = () => authUtils.hasRole('PLANNER')
 

@@ -36,22 +36,25 @@ const routes = [
     component: Login,
     beforeEnter: redirectIfAuthenticated
   },
-  { 
-    path: '/', 
+  // 스펙 화면은 문서 트리를 유지한 채 Home 의 본문 영역에 그린다.
+  {
+    path: '/',
     component: Home,
-    beforeEnter: requireAuth
+    beforeEnter: requireAuth,
+    children: [
+      { path: 'specs', component: SpecList },
+      { path: 'specs/new', component: SpecEditor },
+      { path: 'specs/:id', component: SpecEditor },
+      { path: 'specs/:prdId/tech/new', component: TechDocView },
+      { path: 'tech-docs/:id', component: TechDocView }
+    ]
   },
   { 
     path: '/document/:id', 
     component: DocumentView, 
     props: true,
     beforeEnter: requireAuth
-  },
-  { path: '/specs', component: SpecList, beforeEnter: requireAuth },
-  { path: '/specs/new', component: SpecEditor, beforeEnter: requireAuth },
-  { path: '/specs/:id', component: SpecEditor, beforeEnter: requireAuth },
-  { path: '/specs/:prdId/tech/new', component: TechDocView, beforeEnter: requireAuth },
-  { path: '/tech-docs/:id', component: TechDocView, beforeEnter: requireAuth }
+  }
 ]
 
 const router = createRouter({

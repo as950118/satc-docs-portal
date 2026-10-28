@@ -18,7 +18,7 @@
         <template #default="{ row }">
           {{ row.title }}
           <el-tag v-if="row.revision" size="small" effect="plain" class="revision">v{{ row.revision }}</el-tag>
-          <el-tag v-if="row.prdChanged" size="small" type="danger" data-test="prd-changed">PRD 변경</el-tag>
+          <el-tag v-if="row.prdChanged" size="small" type="danger" data-test="prd-changed">{{ prdChangedLabel(row) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="상태" width="140">
@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { SPEC_KIND, SPEC_STATUS, canPlan, specApiMethods } from '@/api/specs'
+import { SPEC_KIND, SPEC_STATUS, canPlan, prdChangedLabel, specApiMethods, specPath } from '@/api/specs'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
@@ -63,7 +63,7 @@ const load = async () => {
   }
 }
 
-const open = (row) => router.push(row.kind === 'PRD' ? `/specs/${row.id}` : `/tech-docs/${row.id}`)
+const open = (row) => router.push(specPath(row))
 
 onMounted(load)
 </script>
