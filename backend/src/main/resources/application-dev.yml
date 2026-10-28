@@ -1,6 +1,9 @@
 docs:
   auth:
     dev-accounts: true
+  oauth:
+    issuer: ${DOCS_OAUTH_ISSUER:http://localhost:8080}
+    consent-url: ${DOCS_OAUTH_CONSENT_URL:http://localhost:3000/oauth/consent}
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
