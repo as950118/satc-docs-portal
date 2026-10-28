@@ -10,15 +10,18 @@
       />
     </el-aside>
 
-    <!-- 메인 컨텐츠 (문서 뷰어) -->
-    <el-main style="padding: 40px; background: linear-gradient(135deg, #fafbfc 0%, #f0f4f8 100%); position: relative; overflow: hidden;">
-      <div class="main-background-pattern"></div>
-      <DocumentViewer
-        :document="selectedDocument"
-        @document-update="handleDocumentUpdate"
-        @open-document="handleOpenDocumentById"
-      />
-    </el-main>
+    <!-- 메인 컨텐츠 (스펙 화면 또는 문서 뷰어) -->
+    <router-view v-slot="{ Component }">
+      <component :is="Component" v-if="Component" />
+      <el-main v-else style="padding: 40px; background: linear-gradient(135deg, #fafbfc 0%, #f0f4f8 100%); position: relative; overflow: hidden;">
+        <div class="main-background-pattern"></div>
+        <DocumentViewer
+          :document="selectedDocument"
+          @document-update="handleDocumentUpdate"
+          @open-document="handleOpenDocumentById"
+        />
+      </el-main>
+    </router-view>
   </el-container>
 </template>
 
@@ -27,6 +30,7 @@ import DocumentTree from '@/components/DocumentTree.vue'
 import DocumentViewer from '@/components/DocumentViewer.vue'
 import { ElMessage } from 'element-plus'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 export default {
   name: 'Home',
@@ -35,11 +39,13 @@ export default {
     DocumentViewer
   },
   setup() {
+    const router = useRouter()
     const selectedDocument = ref(null)
     const treeData = ref([])
 
     const handleDocumentSelect = (document) => {
       selectedDocument.value = document
+      router.push('/')
     }
 
     const handleTreeDataUpdated = (newTreeData) => {

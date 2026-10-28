@@ -71,11 +71,57 @@
             <span class="stat-text">처리 완료</span>
           </div>
         </div>
+
+        <div class="stats-row spec-stats" v-if="specStatusCounts.length" data-test="spec-status-summary">
+          <span class="spec-stats-label">PRD·기술문서</span>
+          <el-tag v-for="c in specStatusCounts" :key="c.status" size="small" :type="SPEC_STATUS[c.status].tag">
+            {{ SPEC_STATUS[c.status].label }} {{ c.count }}
+          </el-tag>
+        </div>
       </div>
     </div>
-    
+
     <!-- 트리 영역 -->
     <div class="tree-content-section">
+    <el-tree
+      v-if="specsLoaded"
+      :data="specTree"
+      :props="specTreeProps"
+      node-key="id"
+      :default-expanded-keys="specExpandedKeys"
+      :current-node-key="currentSpecId"
+      highlight-current
+      :expand-on-click-node="true"
+      @node-click="openSpec"
+      @node-expand="(data) => setSpecFolderExpanded(data.id, true)"
+      @node-collapse="(data) => setSpecFolderExpanded(data.id, false)"
+      class="document-tree-list spec-tree"
+      data-test="spec-tree"
+    >
+      <template #default="{ data }">
+        <div class="tree-node" :data-test="data.spec ? `spec-node-${data.spec.id}` : data.id">
+          <div class="node-icon">
+            <el-icon v-if="data.isFolder" class="folder-icon spec-folder-icon"><Folder /></el-icon>
+            <el-icon v-else class="file-icon"><Document /></el-icon>
+          </div>
+          <div class="node-content">
+            <span class="node-title">{{ data.title }}</span>
+            <div v-if="data.spec" class="file-tags">
+              <el-tag size="small" :type="SPEC_STATUS[data.spec.status]?.tag">{{ statusLabel(data.spec.status) }}</el-tag>
+              <el-tag v-if="prdChangedLabel(data.spec)" size="small" type="danger" effect="dark">{{ prdChangedLabel(data.spec) }}</el-tag>
+            </div>
+            <span v-else class="folder-count">
+              <span v-if="data.childrenCount > 0">{{ data.childrenCount }}개 문서</span>
+              <span v-else class="no-documents">{{ data.emptyHint || '하위 문서 없음' }}</span>
+            </span>
+          </div>
+          <el-button v-if="data.canCreate" type="primary" size="small" class="new-spec-btn" data-test="new-prd"
+            @click.stop="$router.push('/specs/new')">
+            <el-icon><Plus /></el-icon>새 PRD
+          </el-button>
+        </div>
+      </template>
+    </el-tree>
     <el-tree
       :data="treeData"
       :props="treeProps"
@@ -300,9 +346,12 @@
 <script>
 import { documentApi } from '@/api'
 import { authUtils } from '@/api/auth'
+import { SPEC_STATUS, prdChangedLabel, specPath, statusLabel } from '@/api/specs'
+import { PRD_FOLDER, TECH_FOLDER, folderKeyOf, useSpecTree } from '@/composables/useSpecTree'
 import { Check, Delete, Document, Folder, FolderAdd, Loading, Plus, Rank, Upload, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 export default {
   name: 'DocumentTree',
@@ -323,6 +372,32 @@ export default {
     const treeData = ref([])
     const documentStats = ref(null)
     const loading = ref(false)
+
+    const route = useRoute()
+    const router = useRouter()
+    const { specs, loaded: specsLoaded, tree: specTree, statusCounts: specStatusCounts } = useSpecTree()
+    const specTreeProps = { children: 'children', label: 'title' }
+    const specExpandedKeys = ref([PRD_FOLDER, TECH_FOLDER])
+    const currentSpecId = computed(() => route.params.id || null)
+
+    const setSpecFolderExpanded = (key, expanded) => {
+      const rest = specExpandedKeys.value.filter((k) => k !== key)
+      specExpandedKeys.value = expanded ? [...rest, key] : rest
+    }
+
+    // 딥링크로 들어와도 현재 스펙이 보이도록 상위 가상 폴더를 펼친다.
+    watch([currentSpecId, specs], () => {
+      const current = specs.value.find((s) => s.id === currentSpecId.value)
+      if (current) {
+        specExpandedKeys.value = [...new Set([...specExpandedKeys.value, ...folderKeyOf(current)])]
+      }
+    })
+
+    const openSpec = (data) => {
+      if (data.spec) {
+        router.push(specPath(data.spec))
+      }
+    }
     
     // 권한 확인
     const isAdmin = computed(() => authUtils.isAdmin())
@@ -1346,7 +1421,18 @@ export default {
       moveDocument,
       confirmMove,
       deleteDocument,
-      loadDocumentStatistics
+      loadDocumentStatistics,
+      SPEC_STATUS,
+      statusLabel,
+      prdChangedLabel,
+      specsLoaded,
+      specTree,
+      specTreeProps,
+      specStatusCounts,
+      specExpandedKeys,
+      currentSpecId,
+      setSpecFolderExpanded,
+      openSpec
     }
   }
 }
@@ -2220,6 +2306,49 @@ div.stat-box.status-indexing,
   font-weight: 400 !important;
   line-height: 1.4 !important;
 }
+
+.spec-stats {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spec-stats-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #000080;
+  margin-right: 4px;
+}
+
+.spec-tree,
+.spec-tree + .document-tree-list {
+  height: auto;
+}
+
+.spec-tree {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.spec-folder-icon {
+  color: #000080;
+  background: rgba(0, 0, 128, 0.08);
+}
+
+.spec-tree .tree-node:hover .node-content {
+  max-width: none;
+}
+
+.spec-tree :deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background: rgba(0, 0, 128, 0.06);
+  border-color: rgba(0, 0, 128, 0.15);
+}
+
+.new-spec-btn {
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.new-spec-btn .el-icon {
+  margin-right: 4px;
+}
 </style>
-
-
