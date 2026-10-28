@@ -1,6 +1,7 @@
 package com.docsportal.docs.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -28,6 +29,10 @@ class SpecImplementationApiTest extends SpecApiTestSupport {
 
     private ResultActions link(String id, String bearer, String url) throws Exception {
         return postJson("/api/v1/specs/" + id + "/pr-links", bearer, "{\"url\":\"" + url + "\"}");
+    }
+
+    private ResultActions unlink(String id, String bearer, String url) throws Exception {
+        return mvc.perform(delete("/api/v1/specs/" + id + "/pr-links").param("url", url).header("Authorization", bearer));
     }
 
     private ResultActions requestImplChanges(String id, String bearer, String body) throws Exception {
@@ -301,5 +306,107 @@ class SpecImplementationApiTest extends SpecApiTestSupport {
                 .andExpect(status().isConflict());
         }
         assertThat(doc(be).getBody()).isEqualTo("b");
+    }
+
+    @Test
+    void unlinkRemovesOneLinkAndRecordsIt() throws Exception {
+        String prd = prdWithAreas("[\"BE\"]");
+        String be = approvedTech(prd, "BE", "backend");
+        String backend = login("backend");
+        act(be, "start-implementation", backend).andExpect(status().isOk());
+        link(be, backend, PR).andExpect(status().isOk());
+        link(be, backend, PR + "-typo").andExpect(status().isOk());
+
+        unlink(be, backend, "  " + PR + "-typo  ").andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("IN_IMPLEMENTATION"))
+            .andExpect(jsonPath("$.data.prLinks[*].url").value(Matchers.contains(PR)));
+
+        List<SpecEvent> unlinked = eventsOf(be).stream().filter(e -> e.getAction() == SpecAction.UNLINK_PR).toList();
+        assertThat(unlinked).hasSize(1);
+        assertThat(unlinked.get(0).getComment()).isEqualTo(PR + "-typo");
+        assertThat(unlinked.get(0).getActor()).isEqualTo("backend");
+        assertThat(unlinked.get(0).getActorRole()).isEqualTo("BACKEND");
+        assertThat(unlinked.get(0).getFromStatus()).isEqualTo(SpecStatus.IN_IMPLEMENTATION);
+        assertThat(unlinked.get(0).getToStatus()).isEqualTo(SpecStatus.IN_IMPLEMENTATION);
+        prLinksOf(be).andExpect(jsonPath("$.data.events[-1].action").value("UNLINK_PR"));
+    }
+
+    @Test
+    void unlinkOfAnUnlinkedUrlIsIdempotentWithoutHistory() throws Exception {
+        String prd = prdWithAreas("[\"BE\"]");
+        String be = approvedTech(prd, "BE", "backend");
+        String backend = login("backend");
+        act(be, "start-implementation", backend).andExpect(status().isOk());
+        link(be, backend, PR).andExpect(status().isOk());
+
+        unlink(be, backend, PR).andExpect(status().isOk()).andExpect(jsonPath("$.data.prLinks").isEmpty());
+        unlink(be, backend, PR).andExpect(status().isOk()).andExpect(jsonPath("$.data.prLinks").isEmpty());
+        unlink(be, backend, PR + "/never-linked").andExpect(status().isOk());
+
+        assertThat(eventsOf(be)).filteredOn(e -> e.getAction() == SpecAction.UNLINK_PR).hasSize(1);
+        link(be, backend, PR).andExpect(status().isOk()).andExpect(jsonPath("$.data.prLinks.length()").value(1));
+    }
+
+    @Test
+    void unlinkNeedsSessionAndAValidUrl() throws Exception {
+        String prd = prdWithAreas("[\"BE\"]");
+        String be = approvedTech(prd, "BE", "backend");
+        String backend = login("backend");
+        act(be, "start-implementation", backend).andExpect(status().isOk());
+        link(be, backend, PR).andExpect(status().isOk());
+
+        unlink(be, "Bearer nope", PR).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/api/v1/specs/" + be + "/pr-links").param("url", PR)).andExpect(status().isUnauthorized());
+        for (String bad : List.of("", "   ", "ftp://github.com/x", "github.com/x/pull/1")) {
+            unlink(be, backend, bad).andExpect(status().isBadRequest());
+        }
+        mvc.perform(delete("/api/v1/specs/" + be + "/pr-links").header("Authorization", backend))
+            .andExpect(status().isBadRequest());
+        unlink("nope", backend, PR).andExpect(status().isNotFound());
+        prLinksOf(be).andExpect(jsonPath("$.data.prLinks.length()").value(1));
+    }
+
+    @Test
+    void unlinkIsForTheAreaRoleOnlyAndRoleIsCheckedBeforeState() throws Exception {
+        String prd = prdWithAreas("[\"BE\"]");
+        String be = approvedTech(prd, "BE", "backend");
+        String backend = login("backend");
+        String reviewer = login("reviewer");
+
+        for (String other : List.of(reviewer, login("planner"), login("frontend"))) {
+            unlink(be, other, PR).andExpect(status().isForbidden());
+        }
+        unlink(be, backend, PR).andExpect(status().isConflict());
+
+        toImplReview(be, "backend");
+        String linked = PR + "/" + be;
+        unlink(be, reviewer, linked).andExpect(status().isForbidden());
+        unlink(be, backend, linked).andExpect(status().isConflict());
+        unlink(be, backend, "ftp://not-even-valid").andExpect(status().isConflict());
+        act(be, "approve-implementation", reviewer).andExpect(status().isOk());
+        unlink(be, backend, linked).andExpect(status().isConflict());
+
+        prLinksOf(be).andExpect(jsonPath("$.data.prLinks[*].url").value(Matchers.contains(linked)));
+        assertThat(eventsOf(be)).noneMatch(e -> e.getAction() == SpecAction.UNLINK_PR);
+    }
+
+    @Test
+    void unlinkingTheLastLinkBlocksSubmitUntilAnotherIsLinked() throws Exception {
+        String prd = prdWithAreas("[\"BE\"]");
+        String be = approvedTech(prd, "BE", "backend");
+        String backend = login("backend");
+        String reviewer = login("reviewer");
+        toImplReview(be, "backend");
+        requestImplChanges(be, reviewer, "{\"comment\":\"잘못된 PR\"}").andExpect(status().isOk());
+
+        unlink(be, backend, PR + "/" + be).andExpect(status().isOk()).andExpect(jsonPath("$.data.prLinks").isEmpty());
+        act(be, "submit-implementation", backend).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.errorMessage").value(Matchers.containsString("PR")));
+        assertThat(doc(be).getStatus()).isEqualTo(SpecStatus.IN_IMPLEMENTATION);
+
+        link(be, backend, PR + "/fixed").andExpect(status().isOk());
+        act(be, "submit-implementation", backend).andExpect(status().isOk());
+        act(be, "approve-implementation", reviewer).andExpect(status().isOk());
+        assertThat(doc(prd).getStatus()).isEqualTo(SpecStatus.IMPLEMENTED);
     }
 }

@@ -172,6 +172,23 @@ public class SpecService {
         return detail(doc);
     }
 
+    /** 연결되지 않은 URL 은 이미 지워진 것으로 보고 이력 없이 성공한다. 구현 검토에 올라간 링크는 전이 표가 고정한다. */
+    @Transactional
+    public SpecDetailResponse unlinkPr(SpecActor actor, String id, String url) {
+        SpecDocument doc = find(id);
+        SpecDocument prd = lockPrd(doc.getRootPrdId());
+        Decision decision = authorize(doc.getKind(), doc.getStatus(), SpecAction.UNLINK_PR, actor, factsOf(prd, doc));
+        SpecPrLink link = new SpecPrLink(prUrl(url), actor.username(), Instant.now());
+
+        if (!doc.hasPrLink(link)) {
+            return detail(doc);
+        }
+        doc.unlinkPr(link);
+        documents.saveAndFlush(doc);
+        record(doc, decision, actor, link.getUrl());
+        return detail(doc);
+    }
+
     @Transactional(readOnly = true)
     public List<SpecSummaryResponse> list(SpecKind kind, SpecStatus status, String prdId) {
         return documents.search(kind, status, prdId).stream()

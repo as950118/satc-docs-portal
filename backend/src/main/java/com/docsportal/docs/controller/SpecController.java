@@ -24,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -166,6 +167,15 @@ public class SpecController {
             @RequestBody(required = false) SpecPrLinkRequest request) {
         SpecActor actor = authenticate(authorization);
         return ok(specService.linkPr(actor, specId, request == null ? null : request.getUrl()));
+    }
+
+    @DeleteMapping(API_SPECS_PR_LINKS)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> unlinkPr(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String specId,
+            @RequestParam(value = "url", required = false) String url) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.unlinkPr(actor, specId, url));
     }
 
     @PostMapping(API_SPECS_SUBMIT_IMPLEMENTATION)

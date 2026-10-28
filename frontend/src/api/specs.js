@@ -60,6 +60,7 @@ export const specApiMethods = {
   getTechTemplate: (area) => call(specApi.get(`/templates/tech/${area}`)),
   startImplementation: (id, comment) => call(specApi.post(`/${id}/start-implementation`, comment ? { comment } : {})),
   linkPr: (id, url) => call(specApi.post(`/${id}/pr-links`, { url })),
+  unlinkPr: (id, url) => call(specApi.delete(`/${id}/pr-links`, { params: { url } })),
   submitImplementation: (id, comment) => call(specApi.post(`/${id}/submit-implementation`, comment ? { comment } : {})),
   approveImplementation: (id, comment) => call(specApi.post(`/${id}/approve-implementation`, comment ? { comment } : {})),
   requestImplementationChanges: (id, comment) =>
@@ -88,6 +89,7 @@ export const ACTION_LABEL = {
   AGGREGATE: '자동 집계',
   START_IMPLEMENTATION: '구현 시작',
   LINK_PR: 'PR 연결',
+  UNLINK_PR: 'PR 연결 해제',
   SUBMIT_IMPLEMENTATION: '구현 검토 요청',
   APPROVE_IMPLEMENTATION: '구현 승인',
   REQUEST_IMPL_CHANGES: '구현 변경 요청',
@@ -123,5 +125,5 @@ export const canAuthorTech = (kind) => canPlan() || canReview(kind)
 // 구현 승인과 변경 요청은 영역과 무관하게 REVIEWER 역할만 가능하다.
 export const canReviewImplementation = () => authUtils.hasRole('REVIEWER')
 
-// 구현 시작, PR 연결, 구현 검토 요청은 해당 영역 역할만 가능하다.
+// 구현 시작, PR 연결과 해제, 구현 검토 요청은 해당 영역 역할만 가능하다.
 export const canImplement = (kind) => canReview(kind)

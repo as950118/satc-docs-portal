@@ -1,6 +1,7 @@
 package com.docsportal.docs.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -119,6 +120,12 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
             .andReturn().getResponse().getStatus();
     }
 
+    private Callable<Integer> racingUnlink(String id, String bearer, String url) {
+        return () -> racingMvc.perform(delete("/api/v1/specs/" + id + "/pr-links").param("url", url)
+                .header("Authorization", bearer))
+            .andReturn().getResponse().getStatus();
+    }
+
     private List<Integer> race(Callable<Integer> a, Callable<Integer> b) throws Exception {
         Future<Integer> first = pool.submit(a);
         Future<Integer> second = pool.submit(b);
@@ -192,6 +199,28 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
             .andReturn().getResponse().getContentAsString(), "$.data.prLinks.length()");
         SpecStatus status = doc(be).getStatus();
         assertThat(status == SpecStatus.IMPL_IN_REVIEW ? links == 1 : status == SpecStatus.IN_IMPLEMENTATION && links == 2)
+            .as("status=%s links=%d", status, links).isTrue();
+    }
+
+    @Test
+    void unlinkingTheOnlyPrRacingSubmitNeverLeavesAReviewWithoutPr() throws Exception {
+        String prd = prdWithAreas("[\"BE\"]");
+        String be = approved(prd, "BE", "backend");
+        String backend = login("backend");
+        String only = "https://github.com/o/r/pull/1";
+        mvc.perform(post("/api/v1/specs/" + be + "/start-implementation").header("Authorization", backend))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/specs/" + be + "/pr-links").header("Authorization", backend)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"url\":\"" + only + "\"}"))
+            .andExpect(status().isOk());
+
+        List<Integer> statuses = race(racing(be, "submit-implementation", backend), racingUnlink(be, backend, only));
+
+        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
+        int links = JsonPath.read(mvc.perform(get("/api/v1/specs/" + be).header("Authorization", backend))
+            .andReturn().getResponse().getContentAsString(), "$.data.prLinks.length()");
+        SpecStatus status = doc(be).getStatus();
+        assertThat(status == SpecStatus.IMPL_IN_REVIEW ? links == 1 : status == SpecStatus.IN_IMPLEMENTATION && links == 0)
             .as("status=%s links=%d", status, links).isTrue();
     }
 }
