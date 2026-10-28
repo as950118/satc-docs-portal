@@ -22,17 +22,24 @@ import com.docsportal.docs.persistence.SpecDocument;
 import com.docsportal.docs.persistence.SpecEvent;
 import com.docsportal.docs.repository.SpecDocumentRepository;
 import com.docsportal.docs.repository.SpecEventRepository;
+import com.docsportal.docs.config.AuthConfig;
+import com.docsportal.docs.service.AccountSeeder;
+import com.docsportal.docs.service.AuthService;
 import com.docsportal.docs.service.AuthServiceImpl;
 import com.docsportal.docs.service.SpecService;
 import com.jayway.jsonpath.JsonPath;
 
 /**
- * 실제 AuthServiceImpl·SpecService·저장소를 쓰고 DB 만 H2 로 바꾼다.
+ * 실제 AuthServiceImpl(개발용 계정 시드)·SpecService·저장소를 쓰고 DB 만 H2 로 바꾼다.
  * 테스트 트랜잭션을 끄므로 서비스 트랜잭션이 운영과 같이 커밋된다.
  */
-@DataJpaTest(properties = "spring.datasource.url=jdbc:h2:mem:spec;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000")
+@DataJpaTest(properties = {
+    "spring.datasource.url=jdbc:h2:mem:spec;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000",
+    "docs.auth.token-secret=test-signing-secret-at-least-32-bytes!!",
+    "docs.auth.dev-accounts=true"
+})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(SpecService.class)
+@Import({SpecService.class, AuthServiceImpl.class, AuthConfig.class, AccountSeeder.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 abstract class SpecApiTestSupport {
 
@@ -43,7 +50,8 @@ abstract class SpecApiTestSupport {
     @Autowired
     protected SpecService specService;
 
-    protected final AuthServiceImpl auth = new AuthServiceImpl();
+    @Autowired
+    protected AuthService auth;
     protected MockMvc mvc;
 
     @BeforeEach
