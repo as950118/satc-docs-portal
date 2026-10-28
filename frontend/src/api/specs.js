@@ -46,8 +46,10 @@ const call = async (request) => {
 
 export const specApiMethods = {
   getPrdTemplate: () => call(specApi.get('/templates/prd')),
-  list: ({ kind = 'PRD', status, prdId } = {}) =>
-    call(specApi.get('', { params: { kind: kind || undefined, status: status || undefined, prdId: prdId || undefined } })),
+  list: ({ kind = 'PRD', status, prdId, allVersions } = {}) =>
+    call(specApi.get('', {
+      params: { kind: kind || undefined, status: status || undefined, prdId: prdId || undefined, allVersions: allVersions || undefined },
+    })),
   get: (id) => call(specApi.get(`/${id}`)),
   create: (title, body) => call(specApi.post('', { title, body })),
   update: (id, title, body) => call(specApi.put(`/${id}`, { title, body })),
@@ -65,6 +67,9 @@ export const specApiMethods = {
   approveImplementation: (id, comment) => call(specApi.post(`/${id}/approve-implementation`, comment ? { comment } : {})),
   requestImplementationChanges: (id, comment) =>
     call(specApi.post(`/${id}/request-implementation-changes`, { comment })),
+  newVersion: (prdId) => call(specApi.post(`/${prdId}/new-version`, {})),
+  acknowledgePrdChange: (id, comment) =>
+    call(specApi.post(`/${id}/acknowledge-prd-change`, comment ? { comment } : {})),
 }
 
 export const SPEC_STATUS = {
@@ -77,6 +82,7 @@ export const SPEC_STATUS = {
   IN_IMPLEMENTATION: { label: '구현 중', tag: 'primary' },
   IMPL_IN_REVIEW: { label: '구현 검토 중', tag: 'warning' },
   IMPLEMENTED: { label: '구현 완료', tag: 'success' },
+  SUPERSEDED: { label: '이전 버전', tag: 'info' },
 }
 
 export const ACTION_LABEL = {
@@ -93,6 +99,10 @@ export const ACTION_LABEL = {
   SUBMIT_IMPLEMENTATION: '구현 검토 요청',
   APPROVE_IMPLEMENTATION: '구현 승인',
   REQUEST_IMPL_CHANGES: '구현 변경 요청',
+  NEW_VERSION: '새 버전 작성',
+  SUPERSEDE: '새 버전으로 대체',
+  PRD_REVISED: 'PRD 새 버전 반영',
+  ACKNOWLEDGE_PRD_CHANGE: 'PRD 변경 영향 확인',
 }
 
 export const actionLabel = (action) => ACTION_LABEL[action] || action

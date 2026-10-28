@@ -1,6 +1,7 @@
 package com.docsportal.docs.service;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,6 +19,22 @@ import com.docsportal.docs.persistence.TechArea;
  */
 public final class SpecTransitions {
 
+    /** PRD 본문이 승인된 상태들. 새 버전은 이 상태에서만 만들 수 있다. */
+    public static final Set<SpecStatus> PRD_APPROVED_STATES =
+        EnumSet.of(SpecStatus.PRD_APPROVED, SpecStatus.SPEC_APPROVED, SpecStatus.IMPLEMENTED);
+
+    /** 기술문서가 검토 승인을 지난 상태들. 새 PRD 버전 뒤에는 PRD_APPROVED 아래에서도 이 상태들이 공존한다. */
+    static final Set<SpecStatus> APPROVED_OR_LATER =
+        EnumSet.of(SpecStatus.APPROVED, SpecStatus.IN_IMPLEMENTATION, SpecStatus.IMPL_IN_REVIEW, SpecStatus.IMPLEMENTED);
+
+    /** 구현 단계. 새 PRD 버전이 승인돼도 상태를 바꾸지 않고 "PRD 변경" 표시만 받는다. */
+    static final Set<SpecStatus> IMPLEMENTATION_STATES =
+        EnumSet.of(SpecStatus.IN_IMPLEMENTATION, SpecStatus.IMPL_IN_REVIEW, SpecStatus.IMPLEMENTED);
+
+    /** 기술문서가 가질 수 있는 모든 상태. 새 PRD 버전 승인(PRD_REVISED)은 이 모든 상태에 행이 있다. */
+    static final List<SpecStatus> TECH_STATES = List.of(SpecStatus.DRAFT, SpecStatus.IN_REVIEW, SpecStatus.CHANGES_REQUESTED,
+        SpecStatus.APPROVED, SpecStatus.IN_IMPLEMENTATION, SpecStatus.IMPL_IN_REVIEW, SpecStatus.IMPLEMENTED);
+
     /** from 이 null 이면 문서가 아직 없는 상태(생성)다. guards 는 상태가 맞은 뒤 순서대로 검사한다. */
     public record Transition(SpecKind kind, SpecStatus from, SpecAction action, List<String> roles, SpecStatus to,
                              List<Guard> guards) {
@@ -30,8 +47,8 @@ public final class SpecTransitions {
         /** 아직 PRD 가 없을 때(PRD 생성). */
         public static final PrdFacts NONE = new PrdFacts(null, Set.of(), Map.of());
 
-        boolean allDeclaredAreasAre(SpecStatus status) {
-            return !areas.isEmpty() && areas.stream().allMatch(a -> techDocs.get(a.kind()) == status);
+        boolean allDeclaredAreasIn(Set<SpecStatus> statuses) {
+            return !areas.isEmpty() && areas.stream().allMatch(a -> statuses.contains(techDocs.get(a.kind())));
         }
     }
 
@@ -47,13 +64,13 @@ public final class SpecTransitions {
         AREA_VACANT("이 영역의 기술문서가 이미 있습니다.",
             (kind, f) -> !f.prd().techDocs().containsKey(kind)),
         ALL_AREAS_APPROVED("선언된 모든 영역의 기술문서가 승인되지 않았습니다.",
-            (kind, f) -> f.prd().allDeclaredAreasAre(SpecStatus.APPROVED)),
+            (kind, f) -> f.prd().allDeclaredAreasIn(APPROVED_OR_LATER)),
         PRD_SPEC_APPROVED("부모 PRD 가 SPEC_APPROVED 상태가 아닙니다.",
             (kind, f) -> f.prd().status() == SpecStatus.SPEC_APPROVED),
         HAS_PR("연결된 PR 이 없습니다. 먼저 PR 링크를 추가하세요.",
             (kind, f) -> f.prLinks() > 0),
         ALL_AREAS_IMPLEMENTED("선언된 모든 영역의 기술문서가 구현 완료되지 않았습니다.",
-            (kind, f) -> f.prd().allDeclaredAreasAre(SpecStatus.IMPLEMENTED));
+            (kind, f) -> f.prd().allDeclaredAreasIn(EnumSet.of(SpecStatus.IMPLEMENTED)));
 
         private final String failure;
         private final BiPredicate<SpecKind, Facts> holds;
@@ -86,7 +103,7 @@ public final class SpecTransitions {
     public record Decision(Verdict verdict, Transition transition, String actorRole, Guard failedGuard) {
     }
 
-    public static final List<Transition> TABLE = Stream.concat(
+    public static final List<Transition> TABLE = Stream.of(
         Stream.of(
             row(SpecKind.PRD, null,                    SpecAction.CREATE,         List.of(Roles.PLANNER), SpecStatus.DRAFT),
             row(SpecKind.PRD, SpecStatus.DRAFT,        SpecAction.EDIT,           List.of(Roles.PLANNER), SpecStatus.DRAFT),
@@ -96,15 +113,22 @@ public final class SpecTransitions {
                 Guard.ALL_AREAS_APPROVED),
             row(SpecKind.PRD, SpecStatus.SPEC_APPROVED, SpecAction.AGGREGATE,     List.of(Roles.SYSTEM),  SpecStatus.IMPLEMENTED,
                 Guard.ALL_AREAS_IMPLEMENTED)),
+        PRD_APPROVED_STATES.stream().flatMap(SpecTransitions::versionRows),
         Arrays.stream(TechArea.values()).flatMap(SpecTransitions::techRows)
-    ).toList();
+    ).flatMap(rows -> rows).toList();
+
+    private static Stream<Transition> versionRows(SpecStatus approved) {
+        return Stream.of(
+            row(SpecKind.PRD, approved, SpecAction.NEW_VERSION, List.of(Roles.PLANNER), approved),
+            row(SpecKind.PRD, approved, SpecAction.SUPERSEDE,   List.of(Roles.SYSTEM),  SpecStatus.SUPERSEDED));
+    }
 
     private static Stream<Transition> techRows(TechArea area) {
         SpecKind kind = area.kind();
         List<String> writers = List.of(Roles.PLANNER, area.role());
         List<String> areaRole = List.of(area.role());
         List<String> codeReviewer = List.of(Roles.REVIEWER);
-        return Stream.of(
+        Stream<Transition> rows = Stream.of(
             row(kind, null,                         SpecAction.CREATE,                 writers,      SpecStatus.DRAFT,
                 Guard.PRD_APPROVED, Guard.AREA_DECLARED, Guard.AREA_VACANT),
             row(kind, SpecStatus.DRAFT,             SpecAction.EDIT,                   writers,      SpecStatus.DRAFT),
@@ -120,6 +144,12 @@ public final class SpecTransitions {
                 Guard.HAS_PR),
             row(kind, SpecStatus.IMPL_IN_REVIEW,    SpecAction.APPROVE_IMPLEMENTATION, codeReviewer, SpecStatus.IMPLEMENTED),
             row(kind, SpecStatus.IMPL_IN_REVIEW,    SpecAction.REQUEST_IMPL_CHANGES,   codeReviewer, SpecStatus.IN_IMPLEMENTATION));
+        // 새 PRD 버전 승인은 구현 전 승인만 무효로 돌리고, 나머지는 상태를 두고 "PRD 변경" 표시만 남긴다
+        Stream<Transition> prdRevised = TECH_STATES.stream().map(from -> row(kind, from, SpecAction.PRD_REVISED,
+            List.of(Roles.SYSTEM), from == SpecStatus.APPROVED ? SpecStatus.IN_REVIEW : from));
+        Stream<Transition> acknowledge = IMPLEMENTATION_STATES.stream().map(from -> row(kind, from,
+            SpecAction.ACKNOWLEDGE_PRD_CHANGE, areaRole, from));
+        return Stream.of(rows, prdRevised, acknowledge).flatMap(r -> r);
     }
 
     private static Transition row(SpecKind kind, SpecStatus from, SpecAction action, List<String> roles, SpecStatus to,

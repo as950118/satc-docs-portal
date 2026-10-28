@@ -10,9 +10,13 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.core.io.ClassPathResource;
@@ -42,6 +46,7 @@ import com.docsportal.docs.service.SpecTransitions.Verdict;
  *
  * 문서를 바꾸는 모든 요청은 그 문서가 속한 PRD 행을 먼저 잠근다. 같은 PRD 아래 마지막 두 영역이 동시에 승인되면
  * 각 트랜잭션이 상대의 승인을 보지 못해 집계가 영영 일어나지 않을 수 있어서다.
+ * 새 PRD 버전 승인만 두 행을 잠그며, 순서는 항상 승인하는 버전 → 직전 버전이다 (ARCH-0004 4단계).
  */
 @Service
 public class SpecService {
@@ -85,7 +90,7 @@ public class SpecService {
         requireText(title, "title");
         requireText(body, "body");
 
-        SpecDocument doc = SpecDocument.techDoc(UUID.randomUUID().toString(), area, prd.getId(), title, body,
+        SpecDocument doc = SpecDocument.techDoc(UUID.randomUUID().toString(), area, prd, title, body,
             decision.transition().to(), actor.username());
         documents.saveAndFlush(doc);
         record(doc, decision, actor, null);
@@ -110,46 +115,87 @@ public class SpecService {
 
     @Transactional
     public SpecDetailResponse edit(SpecActor actor, String id, String title, String body) {
-        return transition(actor, id, SpecAction.EDIT, null, doc -> {
+        return transition(actor, id, SpecAction.EDIT, null, (doc, prd) -> {
             requireText(body, "body");
             doc.edit(title == null || title.isBlank() ? doc.getTitle() : title, body);
-        });
+        }, doc -> { });
     }
 
     @Transactional
     public SpecDetailResponse submit(SpecActor actor, String id, String comment) {
-        return transition(actor, id, SpecAction.SUBMIT, comment, doc -> { });
+        return transition(actor, id, SpecAction.SUBMIT, comment);
     }
 
-    /** PRD 면 PRD 승인, 기술문서면 검토 승인. 어느 쪽인지는 전이 표가 kind 로 정한다. */
+    /**
+     * PRD 면 PRD 승인, 기술문서면 검토 승인. 어느 쪽인지는 전이 표가 kind 로 정한다.
+     * 기술문서 승인은 부모 PRD 의 현재 버전을 확인한 것이고, 새 PRD 버전 승인은 직전 버전을 대체한다.
+     */
     @Transactional
     public SpecDetailResponse approve(SpecActor actor, String id, String comment) {
-        return transition(actor, id, SpecAction.APPROVE, comment, doc -> { });
+        return transition(actor, id, SpecAction.APPROVE, comment, SpecDocument::confirmAgainst, this::supersedePredecessor);
     }
 
     @Transactional
     public SpecDetailResponse requestChanges(SpecActor actor, String id, String comment) {
-        return transition(actor, id, SpecAction.REQUEST_CHANGES, comment, doc -> { });
+        return transition(actor, id, SpecAction.REQUEST_CHANGES, comment);
     }
 
     @Transactional
     public SpecDetailResponse startImplementation(SpecActor actor, String id, String comment) {
-        return transition(actor, id, SpecAction.START_IMPLEMENTATION, comment, doc -> { });
+        return transition(actor, id, SpecAction.START_IMPLEMENTATION, comment);
     }
 
     @Transactional
     public SpecDetailResponse submitImplementation(SpecActor actor, String id, String comment) {
-        return transition(actor, id, SpecAction.SUBMIT_IMPLEMENTATION, comment, doc -> { });
+        return transition(actor, id, SpecAction.SUBMIT_IMPLEMENTATION, comment);
     }
 
     @Transactional
     public SpecDetailResponse approveImplementation(SpecActor actor, String id, String comment) {
-        return transition(actor, id, SpecAction.APPROVE_IMPLEMENTATION, comment, doc -> { });
+        return transition(actor, id, SpecAction.APPROVE_IMPLEMENTATION, comment);
     }
 
     @Transactional
     public SpecDetailResponse requestImplementationChanges(SpecActor actor, String id, String comment) {
-        return transition(actor, id, SpecAction.REQUEST_IMPL_CHANGES, comment, doc -> { });
+        return transition(actor, id, SpecAction.REQUEST_IMPL_CHANGES, comment);
+    }
+
+    /**
+     * 승인된 PRD 의 다음 버전을 현재 본문으로 DRAFT 로 만든다. 직전 버전 행을 잠근 뒤 후속 버전을 찾으므로,
+     * 동시에 들어온 요청이나 재시도는 이미 만들어진 초안을 그대로 받는다.
+     */
+    @Transactional
+    public SpecDetailResponse newVersion(SpecActor actor, String prdId) {
+        SpecDocument prior = lockPrd(prdId);
+        Decision decision = authorize(prior.getKind(), prior.getStatus(), SpecAction.NEW_VERSION, actor, factsOf(prior, prior));
+        Optional<SpecDocument> pending = documents.findBySupersedesId(prior.getId());
+        if (pending.isPresent()) {
+            return detail(pending.get());
+        }
+
+        Decision create = authorize(SpecKind.PRD, null, SpecAction.CREATE, actor, new Facts(PrdFacts.NONE, 0));
+        SpecDocument next = SpecDocument.nextVersionOf(prior, UUID.randomUUID().toString(), create.transition().to(),
+            actor.username());
+        documents.saveAndFlush(next);
+        record(next, create, actor, "v" + prior.getRevision() + " 의 새 버전");
+        record(prior, decision, actor, "v" + next.getRevision() + " 초안: " + next.getId());
+        return detail(next);
+    }
+
+    /** 부모 PRD 가 바뀐 뒤 구현 영향을 확인했다는 기록. 확인할 변경이 없으면 이력 없이 성공한다. */
+    @Transactional
+    public SpecDetailResponse acknowledgePrdChange(SpecActor actor, String id, String comment) {
+        SpecDocument doc = find(id);
+        SpecDocument prd = lockPrd(doc.getRootPrdId());
+        Decision decision = authorize(doc.getKind(), doc.getStatus(), SpecAction.ACKNOWLEDGE_PRD_CHANGE, actor,
+            factsOf(prd, doc));
+        if (!doc.isBehind(prd)) {
+            return detail(doc);
+        }
+        doc.confirmAgainst(prd);
+        documents.saveAndFlush(doc);
+        record(doc, decision, actor, comment);
+        return detail(doc);
     }
 
     /** 같은 URL 은 이미 연결된 것으로 보고 이력 없이 성공한다. 상태가 바뀌지 않으므로 집계도 하지 않는다. */
@@ -190,9 +236,13 @@ public class SpecService {
     }
 
     @Transactional(readOnly = true)
-    public List<SpecSummaryResponse> list(SpecKind kind, SpecStatus status, String prdId) {
-        return documents.search(kind, status, prdId).stream()
-            .map(SpecSummaryResponse::from)
+    public List<SpecSummaryResponse> list(SpecKind kind, SpecStatus status, String prdId, boolean allVersions) {
+        List<SpecDocument> found = documents.search(kind, status, prdId, allVersions);
+        Map<String, SpecDocument> parents = documents.findAllById(found.stream()
+                .map(SpecDocument::getPrdId).filter(Objects::nonNull).distinct().toList()).stream()
+            .collect(Collectors.toMap(SpecDocument::getId, Function.identity()));
+        return found.stream()
+            .map(d -> SpecSummaryResponse.from(d, d.getPrdId() != null && d.isBehind(parents.get(d.getPrdId()))))
             .toList();
     }
 
@@ -201,7 +251,7 @@ public class SpecService {
         SpecDocument prd = find(prdId);
         requirePrd(prd);
         return documents.findByPrdIdOrderByCreatedAtAsc(prd.getId()).stream()
-            .map(SpecSummaryResponse::from)
+            .map(d -> SpecSummaryResponse.from(d, d.isBehind(prd)))
             .toList();
     }
 
@@ -210,8 +260,13 @@ public class SpecService {
         return detail(find(id));
     }
 
+    private SpecDetailResponse transition(SpecActor actor, String id, SpecAction action, String comment) {
+        return transition(actor, id, action, comment, (doc, prd) -> { }, doc -> { });
+    }
+
+    /** change 는 상태를 옮기기 전에, afterMove 는 옮기고 이력을 남긴 뒤 집계 전에 실행된다. 둘 다 전이가 허용될 때만 돈다. */
     private SpecDetailResponse transition(SpecActor actor, String id, SpecAction action, String comment,
-                                          Consumer<SpecDocument> change) {
+                                          BiConsumer<SpecDocument, SpecDocument> change, Consumer<SpecDocument> afterMove) {
         SpecDocument doc = find(id);
         SpecDocument prd = lockPrd(doc.getRootPrdId());
         Decision decision = authorize(doc.getKind(), doc.getStatus(), action, actor, factsOf(prd, doc));
@@ -220,28 +275,65 @@ public class SpecService {
         }
 
         if (decision.verdict() == Verdict.ALLOWED) {
-            change.accept(doc);
+            change.accept(doc, prd);
             doc.moveTo(decision.transition().to());
             documents.saveAndFlush(doc);
             record(doc, decision, actor, comment);
+            afterMove.accept(doc);
         }
         aggregate(prd);
         return detail(doc);
     }
 
     /**
-     * PRD 집계의 유일한 실행 지점 (ARCH-0004). 조건은 표의 AGGREGATE 행이 갖고, 통과할 때만 시스템 이력과 함께 올린다.
-     * 이미 올랐거나 조건이 안 맞으면 아무것도 하지 않으므로 몇 번 불러도 결과가 같다.
+     * 새 PRD 버전이 승인되면 직전 버전을 SUPERSEDED 로 닫고, 그 아래 기술문서를 새 버전 아래로 옮기며 표의 PRD_REVISED 행대로
+     * 재검토로 돌리거나 표시만 남긴다. 직전 버전이 없는 문서(첫 버전 PRD, 기술문서)에는 아무것도 하지 않는다.
      */
-    private void aggregate(SpecDocument prd) {
-        Decision decision = SpecTransitions.decide(prd.getKind(), prd.getStatus(), SpecAction.AGGREGATE,
-            SYSTEM.roles(), factsOf(prd, prd));
-        if (decision.verdict() != Verdict.ALLOWED) {
+    private void supersedePredecessor(SpecDocument approved) {
+        if (approved.getSupersedesId() == null) {
             return;
         }
-        prd.moveTo(decision.transition().to());
-        documents.saveAndFlush(prd);
-        record(prd, decision, SYSTEM, null);
+        SpecDocument prior = lockPrd(approved.getSupersedesId());
+        String reason = "v" + approved.getRevision() + " 승인";
+        approved.declareTechAreas(prior.getTechAreas());
+        documents.saveAndFlush(approved);
+        applySystem(prior, systemDecision(prior, SpecAction.SUPERSEDE), reason + ": " + approved.getId());
+
+        for (SpecDocument tech : documents.findByPrdIdOrderByCreatedAtAsc(prior.getId())) {
+            tech.moveUnder(approved);
+            Decision revised = systemDecision(tech, SpecAction.PRD_REVISED);
+            String impact = revised.transition().to() == tech.getStatus() ? "영향 확인 필요" : "재검토 필요";
+            applySystem(tech, revised, "PRD " + reason + ", " + impact);
+        }
+    }
+
+    /**
+     * PRD 집계의 유일한 실행 지점 (ARCH-0004). 조건은 표의 AGGREGATE 행이 갖고, 통과할 때만 시스템 이력과 함께 올린다.
+     * 더 오를 수 없을 때까지 반복하므로 몇 번 불러도 결과가 같다. 새 PRD 버전 승인 직후에는 한 번에 여러 단계를 오를 수 있다.
+     */
+    private void aggregate(SpecDocument prd) {
+        Decision decision;
+        while ((decision = SpecTransitions.decide(prd.getKind(), prd.getStatus(), SpecAction.AGGREGATE,
+                SYSTEM.roles(), factsOf(prd, prd))).verdict() == Verdict.ALLOWED) {
+            prd.moveTo(decision.transition().to());
+            documents.saveAndFlush(prd);
+            record(prd, decision, SYSTEM, null);
+        }
+    }
+
+    private Decision systemDecision(SpecDocument doc, SpecAction action) {
+        Decision decision = SpecTransitions.decide(doc.getKind(), doc.getStatus(), action, SYSTEM.roles(),
+            new Facts(PrdFacts.NONE, 0));
+        if (decision.verdict() != Verdict.ALLOWED) {
+            throw new IllegalStateException("전이 표에 " + doc.getKind() + " " + doc.getStatus() + " " + action + " 행이 없습니다.");
+        }
+        return decision;
+    }
+
+    private void applySystem(SpecDocument doc, Decision decision, String comment) {
+        doc.moveTo(decision.transition().to());
+        documents.saveAndFlush(doc);
+        record(doc, decision, SYSTEM, comment);
     }
 
     private Facts factsOf(SpecDocument prd, SpecDocument subject) {
@@ -290,7 +382,11 @@ public class SpecService {
     }
 
     private SpecDetailResponse detail(SpecDocument doc) {
-        return SpecDetailResponse.from(doc, events.findBySpecIdOrderByAtAscIdAsc(doc.getId()));
+        String supersededById = doc.getKind() == SpecKind.PRD
+            ? documents.findBySupersedesId(doc.getId()).map(SpecDocument::getId).orElse(null)
+            : null;
+        boolean prdChanged = doc.getPrdId() != null && documents.findById(doc.getPrdId()).map(doc::isBehind).orElse(false);
+        return SpecDetailResponse.from(doc, events.findBySpecIdOrderByAtAscIdAsc(doc.getId()), supersededById, prdChanged);
     }
 
     private static String prUrl(String raw) {

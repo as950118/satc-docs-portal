@@ -222,11 +222,11 @@ class ImplementationTransitionsTest {
     }
 
     @Test
-    void aggregateClimbsOneLevelAtATime() {
+    void aggregateClimbsOneLevelPerDecision() {
         Map<SpecKind, SpecStatus> beImplemented = Map.of(SpecKind.TECH_BE, SpecStatus.IMPLEMENTED);
         Decision fromPrdApproved = aggregate(SpecStatus.PRD_APPROVED, EnumSet.of(TechArea.BE), beImplemented);
-        assertThat(fromPrdApproved.verdict()).isEqualTo(Verdict.PRECONDITION_FAILED);
-        assertThat(fromPrdApproved.failedGuard()).isEqualTo(Guard.ALL_AREAS_APPROVED);
+        assertThat(fromPrdApproved.verdict()).isEqualTo(Verdict.ALLOWED);
+        assertThat(fromPrdApproved.transition().to()).isEqualTo(SpecStatus.SPEC_APPROVED);
 
         Decision first = aggregate(SpecStatus.PRD_APPROVED, EnumSet.of(TechArea.BE), Map.of(SpecKind.TECH_BE, SpecStatus.APPROVED));
         assertThat(first.transition().to()).isEqualTo(SpecStatus.SPEC_APPROVED);

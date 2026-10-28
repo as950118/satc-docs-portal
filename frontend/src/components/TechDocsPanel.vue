@@ -27,6 +27,7 @@
             {{ SPEC_STATUS[docs[a.area].status]?.label || docs[a.area].status }}
           </el-tag>
           <el-tag v-else type="info" class="status">미작성</el-tag>
+          <el-tag v-if="docs?.[a.area]?.prdChanged" type="danger" class="status" :data-test="`prd-changed-${a.area}`">PRD 변경</el-tag>
         </template>
         <router-link v-if="docs?.[a.area]" :to="`/tech-docs/${docs[a.area].id}`">{{ docs[a.area].title }}</router-link>
         <el-button v-else-if="docs && canAuthorTech(a.kind) && spec.status === 'PRD_APPROVED'" size="small" type="primary"

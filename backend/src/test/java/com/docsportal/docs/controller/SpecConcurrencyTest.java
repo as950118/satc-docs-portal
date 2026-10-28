@@ -36,7 +36,8 @@ import com.docsportal.docs.service.SpecService;
 import com.jayway.jsonpath.JsonPath;
 
 /**
- * 두 요청이 모두 문서를 읽은 뒤에야 진행하도록 findById 직후에 장벽을 둬서, 경합 순서를 매번 같게 만든다.
+ * 두 요청이 모두 문서를 읽은 뒤에야 진행하도록 각 요청의 첫 findById 직후에 장벽을 둬서, 경합 순서를 매번 같게 만든다.
+ * 잠금 자체를 겨루게 하려는 경우(새 버전 생성)는 첫 findForUpdate 직전에 둔다.
  */
 class SpecConcurrencyTest extends SpecApiTestSupport {
 
@@ -45,20 +46,33 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
 
     private final ExecutorService pool = Executors.newFixedThreadPool(2);
     private MockMvc racingMvc;
+    private MockMvc lockRacingMvc;
 
     @BeforeEach
     void buildRacingMvc() {
-        CyclicBarrier bothLoaded = new CyclicBarrier(2);
+        racingMvc = pausingMvc("findById", false);
+        lockRacingMvc = pausingMvc("findForUpdate", true);
+    }
+
+    private MockMvc pausingMvc(String pauseAt, boolean beforeCall) {
+        CyclicBarrier bothArrived = new CyclicBarrier(2);
+        ThreadLocal<Boolean> paused = ThreadLocal.withInitial(() -> false);
         SpecDocumentRepository pausing = (SpecDocumentRepository) Proxy.newProxyInstance(
             getClass().getClassLoader(), new Class<?>[] {SpecDocumentRepository.class}, (proxy, method, args) -> {
+                boolean pauseHere = method.getName().equals(pauseAt) && !paused.get();
+                if (pauseHere && beforeCall) {
+                    paused.set(true);
+                    bothArrived.await(10, TimeUnit.SECONDS);
+                }
                 Object result;
                 try {
                     result = method.invoke(documents, args);
                 } catch (InvocationTargetException e) {
                     throw e.getCause();
                 }
-                if (method.getName().equals("findById")) {
-                    bothLoaded.await(10, TimeUnit.SECONDS);
+                if (pauseHere && !beforeCall) {
+                    paused.set(true);
+                    bothArrived.await(10, TimeUnit.SECONDS);
                 }
                 return result;
             });
@@ -66,7 +80,7 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
         ProxyFactory factory = new ProxyFactory(new SpecService(pausing, events));
         factory.setProxyTargetClass(true);
         factory.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
-        racingMvc = MockMvcBuilders.standaloneSetup(new SpecController((SpecService) factory.getProxy(), auth)).build();
+        return MockMvcBuilders.standaloneSetup(new SpecController((SpecService) factory.getProxy(), auth)).build();
     }
 
     @AfterEach
@@ -222,5 +236,48 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
         SpecStatus status = doc(be).getStatus();
         assertThat(status == SpecStatus.IMPL_IN_REVIEW ? links == 1 : status == SpecStatus.IN_IMPLEMENTATION && links == 0)
             .as("status=%s links=%d", status, links).isTrue();
+    }
+
+    private Callable<String> racingNewVersion(String prdId, String bearer) {
+        return () -> {
+            var response = lockRacingMvc.perform(post("/api/v1/specs/" + prdId + "/new-version").header("Authorization", bearer))
+                .andReturn().getResponse();
+            return response.getStatus() + " " + JsonPath.read(response.getContentAsString(), "$.data.id");
+        };
+    }
+
+    @Test
+    void twoConcurrentNewVersionCallsShareExactlyOneDraft() throws Exception {
+        String v1 = prdWithAreas("[\"BE\"]");
+        String planner = login("planner");
+
+        Future<String> first = pool.submit(racingNewVersion(v1, planner));
+        Future<String> second = pool.submit(racingNewVersion(v1, planner));
+        String a = first.get(20, TimeUnit.SECONDS);
+        String b = second.get(20, TimeUnit.SECONDS);
+
+        assertThat(a).startsWith("200 ").isEqualTo(b);
+        assertThat(documents.findAll()).filteredOn(d -> v1.equals(d.getSupersedesId())).hasSize(1);
+        assertThat(eventsOf(v1)).filteredOn(e -> e.getAction() == SpecAction.NEW_VERSION).hasSize(1);
+    }
+
+    @Test
+    void techApprovalUnderV1RacingV2ApprovalNeverClearsTheRevisionFlag() throws Exception {
+        String v1 = prdWithAreas("[\"BE\",\"FE\"]");
+        approved(v1, "FE", "frontend");
+        String be = inReview(v1, "BE", "backend");
+        String planner = login("planner");
+        String v2 = idOf(mvc.perform(post("/api/v1/specs/" + v1 + "/new-version").header("Authorization", planner)));
+
+        List<Integer> statuses = race(racing(v2, "approve", planner), racing(be, "approve", login("backend")));
+
+        assertThat(statuses.get(0)).isEqualTo(200);
+        assertThat(statuses.get(1)).isIn(200, 409);
+        assertThat(doc(v1).getStatus()).isEqualTo(SpecStatus.SUPERSEDED);
+        assertThat(documents.findByPrdIdOrderByCreatedAtAsc(v1)).isEmpty();
+        assertThat(doc(be).getPrdId()).isEqualTo(v2);
+        assertThat(doc(be).getStatus()).isEqualTo(SpecStatus.IN_REVIEW);
+        assertThat(doc(be).isBehind(doc(v2))).isTrue();
+        assertThat(doc(v2).getStatus()).isEqualTo(SpecStatus.PRD_APPROVED);
     }
 }

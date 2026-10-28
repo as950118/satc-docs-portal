@@ -1,9 +1,11 @@
 package com.docsportal.docs.controller;
 
 import static com.docsportal.docs.common.Path.API_SPECS;
+import static com.docsportal.docs.common.Path.API_SPECS_ACKNOWLEDGE_PRD_CHANGE;
 import static com.docsportal.docs.common.Path.API_SPECS_APPROVE;
 import static com.docsportal.docs.common.Path.API_SPECS_APPROVE_IMPLEMENTATION;
 import static com.docsportal.docs.common.Path.API_SPECS_ID;
+import static com.docsportal.docs.common.Path.API_SPECS_NEW_VERSION;
 import static com.docsportal.docs.common.Path.API_SPECS_PR_LINKS;
 import static com.docsportal.docs.common.Path.API_SPECS_REQUEST_CHANGES;
 import static com.docsportal.docs.common.Path.API_SPECS_REQUEST_IMPL_CHANGES;
@@ -21,6 +23,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -101,10 +104,11 @@ public class SpecController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam(value = "kind", required = false) String kind,
             @RequestParam(value = "status", required = false) String status,
-            @RequestParam(value = "prdId", required = false) String prdId) {
+            @RequestParam(value = "prdId", required = false) String prdId,
+            @RequestParam(value = "allVersions", defaultValue = "false") boolean allVersions) {
         authenticate(authorization);
         return ok(specService.list(parseEnum(SpecKind.class, kind), parseEnum(SpecStatus.class, status),
-            prdId == null || prdId.isBlank() ? null : prdId));
+            prdId == null || prdId.isBlank() ? null : prdId, allVersions));
     }
 
     @GetMapping(API_SPECS_ID)
@@ -205,6 +209,23 @@ public class SpecController {
         return ok(specService.requestImplementationChanges(actor, specId, commentOf(request)));
     }
 
+    @PostMapping(API_SPECS_NEW_VERSION)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> newVersion(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String prdId) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.newVersion(actor, prdId));
+    }
+
+    @PostMapping(API_SPECS_ACKNOWLEDGE_PRD_CHANGE)
+    public ResponseEntity<RestResponse<SpecDetailResponse>> acknowledgePrdChange(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String specId,
+            @RequestBody(required = false) SpecCommentRequest request) {
+        SpecActor actor = authenticate(authorization);
+        return ok(specService.acknowledgePrdChange(actor, specId, commentOf(request)));
+    }
+
     @PutMapping(API_SPECS_TECH_AREAS)
     public ResponseEntity<RestResponse<SpecDetailResponse>> setTechAreas(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -243,6 +264,12 @@ public class SpecController {
     // 같은 문서에 대한 동시 쓰기. 재시도하면 최신 상태 기준으로 수렴한다
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<RestResponse<String>> handleConflict(ObjectOptimisticLockingFailureException e) {
+        return error(HttpStatus.CONFLICT, "다른 요청이 먼저 문서를 변경했습니다. 다시 조회한 뒤 시도하세요.");
+    }
+
+    // 잠금을 거치지 않은 경합이 유일 제약(한 버전의 후속 버전은 하나)에 걸린 경우
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<RestResponse<String>> handleIntegrityConflict(DataIntegrityViolationException e) {
         return error(HttpStatus.CONFLICT, "다른 요청이 먼저 문서를 변경했습니다. 다시 조회한 뒤 시도하세요.");
     }
 

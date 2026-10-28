@@ -9,13 +9,35 @@
             {{ SPEC_STATUS[spec.status]?.label || spec.status }}
           </el-tag>
           <el-tag v-if="approved" type="success" effect="dark" data-test="approved-badge">승인됨</el-tag>
+          <el-tag effect="plain" data-test="revision">v{{ spec.revision }}</el-tag>
         </template>
       </div>
       <div class="actions">
         <el-button v-if="editable" type="primary" :loading="saving" @click="save">저장</el-button>
         <el-button v-if="canApprove" type="success" :loading="saving" @click="approve">승인</el-button>
+        <el-button v-if="canRevise" :loading="saving" data-test="new-version" @click="newVersion">새 버전 작성</el-button>
       </div>
     </div>
+
+    <el-alert v-if="spec?.status === 'SUPERSEDED'" type="info" :closable="false" show-icon class="notice" data-test="superseded">
+      <template #title>
+        v{{ spec.revision }}은 이후 버전으로 대체된 읽기 전용 이력입니다.
+        <router-link :to="`/specs/${spec.supersededById}`">다음 버전 보기</router-link>
+      </template>
+    </el-alert>
+    <el-alert v-else-if="spec?.supersededById" type="warning" :closable="false" show-icon class="notice" data-test="pending-version">
+      <template #title>
+        새 버전 v{{ spec.revision + 1 }} 초안이 작성 중입니다. 승인되면 이 버전을 대체하고 기술문서가 새 버전으로 옮겨집니다.
+        <router-link :to="`/specs/${spec.supersededById}`">초안 보기</router-link>
+      </template>
+    </el-alert>
+    <el-alert v-if="spec?.supersedesId" type="info" :closable="false" show-icon class="notice" data-test="previous-version">
+      <template #title>
+        v{{ spec.revision - 1 }}의 새 버전입니다.
+        <span v-if="spec.status === 'DRAFT'">승인하면 구현 전 기술문서는 재검토로 돌아가고, 구현 중인 기술문서에는 "PRD 변경" 표시가 붙습니다.</span>
+        <router-link :to="`/specs/${spec.supersedesId}`">이전 버전 보기</router-link>
+      </template>
+    </el-alert>
 
     <el-alert v-if="!planner" type="info" :closable="false" show-icon class="notice"
       title="PLANNER 역할만 작성, 수정, 승인할 수 있습니다. 읽기 전용으로 표시됩니다." />
@@ -52,7 +74,7 @@
 import { SPEC_STATUS, actionLabel, canPlan, specApiMethods, statusLabel } from '@/api/specs'
 import TechDocsPanel from '@/components/TechDocsPanel.vue'
 import { formatTime } from '@/utils/format'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import MarkdownIt from 'markdown-it'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -72,6 +94,7 @@ const saving = ref(false)
 const approved = computed(() => ['PRD_APPROVED', 'SPEC_APPROVED', 'IMPLEMENTED'].includes(spec.value?.status))
 const editable = computed(() => planner && (isNew.value || spec.value?.status === 'DRAFT'))
 const canApprove = computed(() => planner && spec.value?.status === 'DRAFT')
+const canRevise = computed(() => planner && approved.value && !spec.value?.supersededById)
 const rendered = computed(() => md.render(body.value || ''))
 
 const apply = (data) => {
@@ -141,8 +164,21 @@ const approve = () => run(async () => {
     apply(await specApiMethods.update(spec.value.id, title.value, body.value))
   }
   apply(await specApiMethods.approve(spec.value.id))
-  ElMessage.success('승인했습니다.')
+  ElMessage.success(spec.value.supersedesId ? '승인했습니다. 이전 버전을 대체하고 기술문서를 이 버전으로 옮겼습니다.' : '승인했습니다.')
 })
+
+const newVersion = async () => {
+  try {
+    await ElMessageBox.confirm('현재 본문으로 새 버전 초안을 만듭니다. 승인 전까지 지금 버전이 유효합니다.', '새 버전 작성',
+      { confirmButtonText: '작성', cancelButtonText: '취소' })
+  } catch {
+    return
+  }
+  await run(async () => {
+    const created = await specApiMethods.newVersion(spec.value.id)
+    router.push(`/specs/${created.id}`)
+  })
+}
 
 // /specs/new 에서 저장 후 /specs/:id 로 replace 하면 같은 컴포넌트가 재사용되므로 경로 변화에 맞춰 다시 불러온다.
 watch(() => route.params.id, load, { immediate: true })
