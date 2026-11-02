@@ -274,7 +274,7 @@ final class OpenSpecConverter {
         for (Scenario s : ac.scenarios()) {
             out.append("#### Scenario: ").append(s.name()).append('\n').append(String.join("\n", s.steps())).append("\n\n");
         }
-        return out.toString();
+        return out.toString().stripTrailing() + "\n";
     }
 
     private static String renderAll(Collection<Criterion> criteria) {
