@@ -111,6 +111,19 @@ docker compose down {service-name} -v --rmi all
 - 로컬 개발: `./gradlew bootRun --args='--spring.profiles.active=dev'` (임시 서명 키 + 개발용 계정)
 - 운영(docker compose): `.env`에 `DOCS_AUTH_TOKEN_SECRET`, 처음 한 번 `DOCS_AUTH_ADMIN_USERNAME`/`DOCS_AUTH_ADMIN_PASSWORD`를 설정합니다. 서명 키는 저장소에 커밋하지 마세요.
 
+### MCP 클라이언트 로그인 (OAuth)
+백엔드는 MCP 클라이언트(Claude Code 등)를 위한 최소 OAuth 2.1 인가 서버이기도 합니다. 클라이언트가 브라우저를 열면 사용자는 평소 포털 계정으로 로그인하고 동의 화면(`/oauth/consent`)에서 허용합니다. 클라이언트는 포털 JWT를 받고, 유효 시간은 `DOCS_OAUTH_TOKEN_TTL`(기본 7일)입니다. 리프레시 토큰은 없어서 만료되면 브라우저 로그인을 다시 합니다.
+
+| 엔드포인트 | 용도 |
+|---|---|
+| `GET /.well-known/oauth-authorization-server` | 인가 서버 메타데이터(RFC 8414) |
+| `POST /oauth/register` | 공개 클라이언트 동적 등록(RFC 7591). redirect_uri는 http 루프백(`127.0.0.1`, `[::1]`, `localhost`)이나 `DOCS_OAUTH_ALLOWED_REDIRECT_URIS`만 |
+| `GET /oauth/authorize` | 인가 요청 검증 뒤 동의 화면으로 이동. PKCE S256 필수, client_id·redirect_uri가 틀리면 리다이렉트하지 않고 400 |
+| `GET /oauth/authorize/requests/{id}`, `POST .../approve`, `POST .../deny` | 동의 화면 전용. 승인은 로그인한 사용자의 포털 토큰(Authorization 헤더)으로 하며 60초짜리 1회용 코드를 만듭니다 |
+| `POST /oauth/token` | `authorization_code` + `code_verifier` 교환. 코드는 한 번만 쓸 수 있습니다 |
+
+등록 클라이언트는 `oauth_client` 테이블에, 동의 대기 요청(10분)과 코드(60초)는 백엔드 메모리에 둡니다. 백엔드를 여러 대 띄우면 코드 저장소를 공유해야 하므로 지금은 한 대 기준입니다.
+
 ---
 ## ⚙️  환경변수
 docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .env`로 만들고 값을 채우세요. `.env`는 git에 올라가지 않습니다.  
@@ -132,6 +145,10 @@ docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .
 | `DOCS_AUTH_TOKEN_TTL` | backend | `12h` | | 토큰 유효 시간 |
 | `DOCS_AUTH_ADMIN_USERNAME` / `DOCS_AUTH_ADMIN_PASSWORD` | backend | 없음 | 첫 기동 | 둘 다 설정하면 해당 username이 없을 때만 ADMIN 계정을 만듭니다. 이미 있으면 비밀번호를 바꾸지 않습니다 |
 | `DOCS_AUTH_DEV_ACCOUNTS` | backend | `false` (`dev` 프로필은 `true`) | | 개발용 계정을 없을 때만 만듭니다 |
+| `DOCS_OAUTH_ISSUER` | backend | 없음 (`dev` 프로필·compose `http://localhost:8080`) | O | OAuth issuer, MCP 클라이언트가 이 백엔드에 접근하는 공개 주소. 비어 있으면 기동하지 않습니다 |
+| `DOCS_OAUTH_CONSENT_URL` | backend | 없음 (`dev` 프로필·compose `http://localhost:3000/oauth/consent`) | O | 프론트엔드 동의 화면 주소. 비어 있으면 기동하지 않습니다 |
+| `DOCS_OAUTH_TOKEN_TTL` | backend | `168h` | | OAuth로 발급하는 토큰의 유효 시간 |
+| `DOCS_OAUTH_ALLOWED_REDIRECT_URIS` | backend | 없음 | | 루프백 외에 등록을 허용할 redirect_uri, 쉼표 구분·정확히 일치 |
 | `VITE_API_BASE_URL` | frontend | `http://localhost:8080` (compose 동일) | O | 브라우저가 호출할 백엔드 주소. 컨테이너는 기동 시 이 값으로 `/config.js`를 만들고, 비어 있으면 기동하지 않습니다. `npm run dev`/`build`는 Vite 환경변수로 읽습니다 |
 | `VITE_JENKINS_URL` / `VITE_ARGOCD_URL` / `VITE_COMMON_CODE_URL` | frontend | 없음 | | 상단 바로가기 링크. 비어 있으면 해당 링크를 숨깁니다 |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose | `docs` / `postgres` / `postgres` | O | postgres 컨테이너 초기값이자 backend DB 계정 |

@@ -95,11 +95,11 @@
 </template>
 
 <script>
-import { authApiMethods, authUtils } from '@/api/auth'
+import { authApiMethods, authUtils, safeRedirectPath } from '@/api/auth'
 import { CircleCheck, Lock, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 export default {
   name: 'Login',
@@ -110,6 +110,7 @@ export default {
   },
   setup() {
     const router = useRouter()
+    const route = useRoute()
     const loginFormRef = ref(null)
     const isLoading = ref(false)
     
@@ -160,8 +161,7 @@ export default {
           
           ElMessage.success('로그인에 성공했습니다!')
           
-          // 홈 페이지로 이동
-          await router.push('/')
+          await router.push(safeRedirectPath(route.query.redirect))
         } else {
           ElMessage.error(response.data.errorMessage || '로그인에 실패했습니다.')
         }

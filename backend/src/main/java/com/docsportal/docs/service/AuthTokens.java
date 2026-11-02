@@ -15,7 +15,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 
 /**
- * 로그인 토큰 발급·검증. HS256 JWT 이고 클레임은 sub(username), iat, exp 뿐이다.
+ * 로그인 토큰 발급·검증. HS256 JWT 이고 클레임은 sub(username), iat, exp 다.
+ * OAuth 로 발급한 토큰만 aud(RFC 8707 resource)와 client_id 가 더 붙고, 검증은 이 둘을 보지 않는다.
  * 역할과 활성 여부는 매 요청 DB 계정에서 읽으므로 토큰에 넣지 않는다.
  */
 public class AuthTokens {
@@ -46,12 +47,22 @@ public class AuthTokens {
     }
 
     public String issue(String username) {
+        return issue(username, ttl, null, null);
+    }
+
+    public String issue(String username, Duration ttl, String audience, String clientId) {
         Instant now = clock.instant();
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+        JWTClaimsSet.Builder builder = new JWTClaimsSet.Builder()
             .subject(username)
             .issueTime(Date.from(now))
-            .expirationTime(Date.from(now.plus(ttl)))
-            .build();
+            .expirationTime(Date.from(now.plus(ttl)));
+        if (audience != null) {
+            builder.audience(audience);
+        }
+        if (clientId != null) {
+            builder.claim("client_id", clientId);
+        }
+        JWTClaimsSet claims = builder.build();
         SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
         try {
             jwt.sign(signer);
