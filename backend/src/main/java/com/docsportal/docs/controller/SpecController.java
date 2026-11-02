@@ -4,6 +4,7 @@ import static com.docsportal.docs.common.Path.API_SPECS;
 import static com.docsportal.docs.common.Path.API_SPECS_ACKNOWLEDGE_PRD_CHANGE;
 import static com.docsportal.docs.common.Path.API_SPECS_APPROVE;
 import static com.docsportal.docs.common.Path.API_SPECS_APPROVE_IMPLEMENTATION;
+import static com.docsportal.docs.common.Path.API_SPECS_EXPORT_OPENSPEC;
 import static com.docsportal.docs.common.Path.API_SPECS_ID;
 import static com.docsportal.docs.common.Path.API_SPECS_NEW_VERSION;
 import static com.docsportal.docs.common.Path.API_SPECS_PR_LINKS;
@@ -17,6 +18,7 @@ import static com.docsportal.docs.common.Path.API_SPECS_TECH_DOCS;
 import static com.docsportal.docs.common.Path.API_SPECS_TEMPLATE_PRD;
 import static com.docsportal.docs.common.Path.API_SPECS_TEMPLATE_TECH;
 
+import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -44,6 +46,7 @@ import com.docsportal.docs.format.request.SpecTechAreasRequest;
 import com.docsportal.docs.format.request.SpecTechDocRequest;
 import com.docsportal.docs.format.request.SpecWriteRequest;
 import com.docsportal.docs.format.response.SpecDetailResponse;
+import com.docsportal.docs.format.response.SpecExportResponse;
 import com.docsportal.docs.format.response.SpecSummaryResponse;
 import com.docsportal.docs.format.response.SpecTemplateResponse;
 import com.docsportal.docs.format.response.UserInfoResponse;
@@ -53,6 +56,7 @@ import com.docsportal.docs.persistence.TechArea;
 import com.docsportal.docs.service.AuthService;
 import com.docsportal.docs.service.SpecActor;
 import com.docsportal.docs.service.SpecException;
+import com.docsportal.docs.service.SpecExportService;
 import com.docsportal.docs.service.SpecService;
 
 /**
@@ -66,9 +70,11 @@ public class SpecController {
 
     private final SpecService specService;
     private final AuthService authService;
+    private final SpecExportService exportService;
 
-    public SpecController(SpecService specService, AuthService authService) {
+    public SpecController(SpecService specService, SpecExportService exportService, AuthService authService) {
         this.specService = specService;
+        this.exportService = exportService;
         this.authService = authService;
     }
 
@@ -251,6 +257,21 @@ public class SpecController {
             @PathVariable("specId") String prdId) {
         authenticate(authorization);
         return ok(specService.techDocs(prdId));
+    }
+
+    @GetMapping(API_SPECS_EXPORT_OPENSPEC)
+    public ResponseEntity<RestResponse<SpecExportResponse>> exportOpenSpec(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("specId") String prdId) {
+        authenticate(authorization);
+        SpecExportResponse export = exportService.exportOpenSpec(prdId);
+        if (export.lint().isEmpty()) {
+            return ok(export);
+        }
+        // 형식이 맞지 않는 PRD. 고칠 항목(lint)을 데이터로 함께 돌려준다
+        HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
+        String message = "PRD 를 OpenSpec 으로 내보낼 수 없습니다: " + String.join("; ", export.lint());
+        return ResponseEntity.status(status).body(new RestResponse<>(LocalDateTime.now().toString(), message, export, status.value()));
     }
 
     @ExceptionHandler(SpecException.class)

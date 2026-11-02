@@ -32,6 +32,7 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 import com.docsportal.docs.persistence.SpecAction;
 import com.docsportal.docs.persistence.SpecStatus;
 import com.docsportal.docs.repository.SpecDocumentRepository;
+import com.docsportal.docs.service.SpecExportService;
 import com.docsportal.docs.service.SpecService;
 import com.jayway.jsonpath.JsonPath;
 
@@ -80,7 +81,7 @@ class SpecConcurrencyTest extends SpecApiTestSupport {
         ProxyFactory factory = new ProxyFactory(new SpecService(pausing, events));
         factory.setProxyTargetClass(true);
         factory.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
-        return MockMvcBuilders.standaloneSetup(new SpecController((SpecService) factory.getProxy(), auth)).build();
+        return MockMvcBuilders.standaloneSetup(new SpecController((SpecService) factory.getProxy(), new SpecExportService(documents), auth)).build();
     }
 
     @AfterEach
