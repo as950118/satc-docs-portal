@@ -29,7 +29,7 @@
 import DocumentTree from '@/components/DocumentTree.vue'
 import DocumentViewer from '@/components/DocumentViewer.vue'
 import { ElMessage } from 'element-plus'
-import { ref, watch } from 'vue'
+import { ref, toRaw, watch } from 'vue'
 import { useLiveEvents } from '@/composables/useLiveEvents'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -45,25 +45,39 @@ export default {
     const selectedDocument = ref(null)
     const treeData = ref([])
 
-    const handleDocumentSelect = (document) => {
-      selectedDocument.value = document
-      router.push('/')
+    // history.state 는 구조화 복제만 가능하므로 트리 노드(반응형 + children)를 평범한 객체로 줄여 담는다.
+    const toStateDoc = (node) => {
+      const { children, ...rest } = toRaw(node)
+      return JSON.parse(JSON.stringify(rest))
     }
 
-    // 검색 결과에서 연 문서는 history.state 에 담겨 있다. 뒤로/앞으로 가기 시 그에 맞춰 문서 선택을 복원한다.
-    watch(
-      () => route.fullPath,
-      () => {
-        if (route.path !== '/') return
-        const doc = window.history.state?.doc
-        if (route.query.d && doc) {
-          selectedDocument.value = doc
-        } else if (!route.query.d && selectedDocument.value?.fromSearch) {
-          selectedDocument.value = null
-        }
-      },
-      { immediate: true }
-    )
+    // 트리에서 고른 문서도 검색 흐름처럼 히스토리 항목으로 남긴다. 선택 복원은 아래 watch 가 route 를 보고 한다.
+    const handleDocumentSelect = (document) => {
+      router.push({ path: '/', query: { doc: document.id }, state: { doc: toStateDoc(document) } })
+    }
+
+    // 문서 선택을 주소(?doc=, ?d=1)와 history.state 에 맞춘다. 뒤로/앞으로 가기와 새로고침 모두 여기로 복원된다.
+    // 검색 결과 화면(?q)에서 X 로 닫아 빈 주소로 오면, 그 전에 열려 있던 트리 문서는 그대로 둔다.
+    let prevWasSearch = false
+    const syncSelection = () => {
+      if (route.path !== '/') return
+      const { doc: docId, d, q } = route.query
+      const stateDoc = window.history.state?.doc
+      if (d && stateDoc) {
+        selectedDocument.value = stateDoc
+      } else if (docId) {
+        selectedDocument.value = String(stateDoc?.id) === docId ? stateDoc : findNodeInTree(treeData.value, docId)
+      } else if (!d) {
+        const keep = selectedDocument.value && !selectedDocument.value.fromSearch && (q || prevWasSearch)
+        if (!keep) selectedDocument.value = null
+      }
+      prevWasSearch = !!q && !d
+    }
+    // 현재 선택을 비운다. 트리에서 연 문서의 주소(?doc=)는 함께 지워 뒤로가기로 지운 문서가 되살아나지 않게 한다.
+    const clearSelection = () => {
+      selectedDocument.value = null
+      if (route.query.doc) router.replace('/')
+    }
 
     // 문서 토스트 클릭: 트리에 읽혀 있는 노드면 그 문서를 연다. 아직 읽히지 않은 폴더 안이면 홈으로만 간다.
     const handleToastOpenDocument = (evt) => {
@@ -77,17 +91,20 @@ export default {
 
     const findNodeInTree = (tree, id) => {
       for (const node of tree) {
-        if (node.id === id) return node
+        if (String(node.id) === String(id)) return node
         const found = node.children?.length ? findNodeInTree(node.children, id) : null
         if (found) return found
       }
       return null
     }
 
+    watch(() => route.fullPath, syncSelection, { immediate: true })
+
     useLiveEvents({ router, openDocument: handleToastOpenDocument })
 
     const handleTreeDataUpdated = (newTreeData) => {
       treeData.value = newTreeData
+      if (route.query.doc && !selectedDocument.value) syncSelection()
       console.log('트리 데이터 업데이트됨:', newTreeData.length, '개 항목')
     }
 
@@ -104,7 +121,7 @@ export default {
 
       // 1. 현재 선택된 문서 자체가 삭제되는 경우
       if (selectedDocument.value.id === document.id) {
-        selectedDocument.value = null
+        clearSelection()
         return
       }
 
@@ -113,7 +130,7 @@ export default {
         const isDocumentInDeletedFolder = checkIfDocumentInFolder(selectedDocument.value, document.id)
         if (isDocumentInDeletedFolder) {
           console.log(`현재 선택된 문서 "${selectedDocument.value.title}"가 삭제되는 폴더 "${document.title}" 내부에 있어서 홈 화면으로 돌아갑니다.`)
-          selectedDocument.value = null
+          clearSelection()
           ElMessage.info(`상위 폴더가 삭제되었습니다. 홈 화면으로 돌아갑니다.`)
         }
       }
@@ -156,8 +173,9 @@ export default {
 
     const handleDocumentUpdate = (updatedDocument) => {
       // 문서 업데이트 시 현재 선택된 문서도 업데이트
-      selectedDocument.value = updatedDocument
-      
+      if (updatedDocument) selectedDocument.value = updatedDocument
+      else clearSelection()
+
       // 실제 애플리케이션에서는 여기서 백엔드 API 호출
       console.log('문서 업데이트:', updatedDocument)
     }
