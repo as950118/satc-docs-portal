@@ -13,6 +13,10 @@ public class SearchResultItem {
     private List<BreadcrumbItem> breadcrumb;
     private String objectName;
     private List<String> highlightContent;
+    /** PRD / TECH_BE / TECH_FE / TECH_DATA. 업로드 문서면 null. */
+    private String specKind;
+    /** 포털 DB·MinIO 에는 없고 색인에만 있는 문서. 본문은 /docs/indexed/{id} 로 가져온다. */
+    private boolean indexOnly;
     
     public SearchResultItem() {
     }
@@ -23,6 +27,22 @@ public class SearchResultItem {
         this.breadcrumb = breadcrumb;
         this.objectName = objectName;
         this.highlightContent = highlightContent;
+    }
+    
+    public boolean isIndexOnly() {
+        return indexOnly;
+    }
+    
+    public void setIndexOnly(boolean indexOnly) {
+        this.indexOnly = indexOnly;
+    }
+    
+    public String getSpecKind() {
+        return specKind;
+    }
+    
+    public void setSpecKind(String specKind) {
+        this.specKind = specKind;
     }
     
     public String getDocumentId() {

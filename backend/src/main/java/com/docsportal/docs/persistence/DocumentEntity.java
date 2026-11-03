@@ -39,6 +39,16 @@ public class DocumentEntity extends BaseEntity {
     @Column(name = "synced_at")
     private Instant syncedAt;
 
+    // === 사용자 등록 표준문서의 등록자/최종 수정자 (username). 코드 동기화·수동 업로드 문서는 null ===
+    @Column(name = "created_by")
+    private String createdBy;
+    @Column(name = "updated_by")
+    private String updatedBy;
+    @Column(name = "created_by_id")
+    private Long createdById;
+    @Column(name = "updated_by_id")
+    private Long updatedById;
+
     public DocumentEntity() {
     }
 
@@ -138,6 +148,34 @@ public class DocumentEntity extends BaseEntity {
      */
     public void releaseSourceKey() {
         this.sourceKey = null;
+    }
+
+    /**
+     * 사용자 등록 문서의 등록자/수정자 기록. 처음이면 등록자도 함께 채운다.
+     */
+    public void recordActor(Long userId, String username, boolean created) {
+        if (created || this.createdBy == null) {
+            this.createdBy = username;
+            this.createdById = userId;
+        }
+        this.updatedBy = username;
+        this.updatedById = userId;
+    }
+
+    public Long getCreatedById() {
+        return createdById;
+    }
+
+    public Long getUpdatedById() {
+        return updatedById;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
     }
 
     public String getSourceKey() {

@@ -360,7 +360,9 @@ public class ExternalServiceImpl implements ExternalService {
                                                        Map<String, DocumentEntity> allDocumentsMap) {
         String documentId = externalItem.getDocumentId();
         DocumentEntity document = documentMap.get(documentId);
-        String title = document != null ? document.getTitle() : "Unknown Document";
+        // DB 에 없는 문서(색인 전용)는 색인에 저장된 제목을 쓴다
+        String title = document != null ? document.getTitle()
+                : (externalItem.getTitle() != null && !externalItem.getTitle().isBlank() ? externalItem.getTitle() : documentId);
         List<BreadcrumbItem> breadcrumb = document != null ? buildBreadcrumb(document, allDocumentsMap) : new ArrayList<>();
         String objectName = null;
         List<String> highlightContent = new ArrayList<>();
@@ -404,6 +406,7 @@ public class ExternalServiceImpl implements ExternalService {
         }
         
         SearchResultItem result = new SearchResultItem(documentId, title, breadcrumb, objectName, highlightContent);
+        result.setIndexOnly(document == null);
         logger.debug("[SEARCH CONVERT] Created result item: documentId={}, title={}, breadcrumb size={}, objectName={}, highlightCount={}", 
             result.getDocumentId(), result.getTitle(), result.getBreadcrumb() != null ? result.getBreadcrumb().size() : 0,
             result.getObjectName(), result.getHighlightContent() != null ? result.getHighlightContent().size() : 0);
@@ -535,6 +538,21 @@ public class ExternalServiceImpl implements ExternalService {
         }
     }
     
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getIndexedDocument(String documentId) {
+        try {
+            String url = UriComponentsBuilder.fromUriString(String.format("%s:%d/api/v1/documents", apiHost, apiPort))
+                    .pathSegment(documentId).build().encode().toUriString();
+            return restTemplate.getForObject(url, Map.class);
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            return null;
+        } catch (Exception e) {
+            logger.error("[INDEXED DOC] Failed to fetch {}: {}", documentId, e.getMessage());
+            return null;
+        }
+    }
+
     @Override
     @Async("fileUploadExecutor")
     public void notifyDocumentsDeleted(List<String> deletedFileNames) {

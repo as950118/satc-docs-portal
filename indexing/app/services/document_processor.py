@@ -155,9 +155,18 @@ def update_document_status(object_name: str, status: str = "COMPLETE") -> bool:
             timeout=10  # 10초 타임아웃
         )
         
-        if response.status_code == 200:
+        # 백엔드는 실패해도 HTTP 200 에 본문 status 로 결과를 알리는 경우가 있어 본문도 확인한다
+        body_status = None
+        try:
+            body_status = response.json().get("status")
+        except Exception:
+            pass
+        if response.status_code == 200 and (body_status is None or 200 <= int(body_status) < 300):
             logger.info(f"Successfully updated document status: {document_id} -> {status}")
             return True
+        elif response.status_code == 200:
+            logger.error(f"Status update rejected by backend: {document_id} -> {status}, body status: {body_status}, response: {response.text[:300]}")
+            return False
         else:
             logger.error(f"Failed to update document status: {document_id}, status_code: {response.status_code}, response: {response.text}")
             return False
@@ -252,7 +261,18 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
         chunks = chunking_service.chunk_document(content_str, object_name, enhanced_metadata)
         
         if not chunks:
-            logger.warning(f"No chunks created for file: {bucket_name}/{object_name}")
+            # 제목(#)이 없거나 너무 짧은 문서는 청크가 0개다. 청크가 없어도 전체 문서는 색인해
+            # 검색되게 하고 상태를 COMPLETE 로 바꾼다. 그러지 않으면 문서가 INDEXING 에 영원히 머문다.
+            logger.warning(f"No chunks created for file: {bucket_name}/{object_name}, indexing full document only")
+            full_doc_result = full_document_client.index_document(FullDocument(
+                document_id=document_id,
+                title=title,
+                content=content_str,
+                metadata=enhanced_metadata
+            ))
+            status_updated = False
+            if full_doc_result.get("success"):
+                status_updated = update_document_status(object_name, "COMPLETE")
             return {
                 "success": True,
                 "bucket_name": bucket_name,
@@ -260,6 +280,8 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
                 "file_size": len(file_content),
                 "chunks_created": 0,
                 "elasticsearch_indexed": False,
+                "full_document_indexed": bool(full_doc_result.get("success")),
+                "status_updated": status_updated,
                 "message": f"No chunks created for file: {bucket_name}/{object_name}",
                 "task_id": task_id
             }
@@ -295,11 +317,14 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
         # Index full document
         full_doc_result = full_document_client.index_document(full_doc)
         
-        # ES 인덱싱이 성공했을 때 상태 업데이트 API 호출
+        # ES 인덱싱 결과에 따라 상태 업데이트 API 호출. 성공한 청크가 없으면 FAILED 로 남겨 INDEXING 에 갇히지 않게 한다
         status_updated = False
         if index_result["success"] > 0:
             logger.info(f"ES indexing successful for {bucket_name}/{object_name}, calling status update API")
             status_updated = update_document_status(object_name, "COMPLETE")
+        else:
+            logger.error(f"ES chunk indexing failed for {bucket_name}/{object_name}: {index_result}")
+            status_updated = update_document_status(object_name, "FAILED")
         
         result = {
             "success": True,
@@ -324,6 +349,9 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
     except Exception as e:
         error_msg = f"Error processing document {bucket_name}/{object_name}: {str(e)}"
         logger.error(error_msg, exc_info=True)
+        # 처리 중 예외가 나도 문서가 INDEXING 에 갇히지 않도록 실패 상태를 알린다 (update_document_status 는 예외를 던지지 않는다)
+        if object_name:
+            update_document_status(object_name, "FAILED")
         raise Exception(error_msg)
 
 

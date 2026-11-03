@@ -125,6 +125,18 @@ docker compose down {service-name} -v --rmi all
 등록 클라이언트는 `oauth_client` 테이블에, 동의 대기 요청(10분)과 코드(60초)는 백엔드 메모리에 둡니다. 백엔드를 여러 대 띄우면 코드 저장소를 공유해야 하므로 지금은 한 대 기준입니다.
 
 ---
+## 📝  스펙 워크플로우와 실시간 알림
+기능을 **PRD → 기술문서(BE/FE/DATA) → 구현 → 구현 승인** 순서로 포털에 올려 진행할 수 있습니다. 상태 전이는 서버가 판단하고 사람은 승인만 합니다. 문서 검색에서 PRD·기술문서도 함께 찾고, 문서나 스펙이 바뀌면 열려 있는 화면에 SSE로 알림이 갑니다.
+
+| 문서 | 내용 |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | 구성요소, 업로드·인덱싱·검색·SSE 흐름, 상태 다이어그램(Mermaid) |
+| [docs/spec-workflow.md](docs/spec-workflow.md) | 단계별 사용법, 단계마다 필요한 계정(역할), MCP 도구 순서, 계정 바꾸는 법, 자주 만나는 오류(403·409) |
+| [docs/live-events.md](docs/live-events.md) | `GET /api/v1/events`(SSE) 계약, `X-Client-Id`, 프론트 동작 규칙, 문서 상태(`FAILED` 포함)와 문제 해결 |
+
+코드를 고친 뒤에는 컨테이너를 다시 빌드해야 `localhost:8080`에 반영됩니다: `docker compose up -d --build backend indexing`
+
+---
 ## ⚙️  환경변수
 docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .env`로 만들고 값을 채우세요. `.env`는 git에 올라가지 않습니다.  
 아무 값도 없으면 compose와 로컬 개발은 아래 기본값(localhost)으로 동작합니다. 운영 필수 항목은 기본값이 운영에서 맞지 않으므로 반드시 설정합니다.

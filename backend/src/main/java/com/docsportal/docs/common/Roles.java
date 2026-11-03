@@ -13,6 +13,8 @@ public final class Roles {
     public static final String FRONTEND = "FRONTEND";
     public static final String DATA     = "DATA";
     public static final String REVIEWER = "REVIEWER";
+    /** 표준문서(개발 가이드 등) 등록·갱신만 허용하는 역할. 다른 역할과 함께 가질 수 있다. */
+    public static final String UPLOADER = "UPLOADER";
     /** 자동 집계 같은 시스템 전이의 행위자. 어떤 사용자에게도 부여하지 않는다. */
     public static final String SYSTEM   = "SYSTEM";
 

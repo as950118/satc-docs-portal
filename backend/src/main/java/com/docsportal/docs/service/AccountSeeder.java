@@ -35,7 +35,8 @@ public class AccountSeeder {
         new DevAccount("backend", "백엔드 개발자", Set.of(Roles.BACKEND, Roles.USER)),
         new DevAccount("frontend", "프론트엔드 개발자", Set.of(Roles.FRONTEND, Roles.USER)),
         new DevAccount("data", "데이터 엔지니어", Set.of(Roles.DATA, Roles.USER)),
-        new DevAccount("reviewer", "코드 리뷰어", Set.of(Roles.REVIEWER, Roles.USER))
+        new DevAccount("reviewer", "코드 리뷰어", Set.of(Roles.REVIEWER, Roles.USER)),
+        new DevAccount("uploader", "표준문서 업로더", Set.of(Roles.UPLOADER, Roles.USER))
     );
 
     private final AppUserRepository users;

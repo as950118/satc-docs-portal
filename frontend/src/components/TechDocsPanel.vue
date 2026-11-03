@@ -23,7 +23,7 @@
         <template #header>
           <strong>{{ a.label }}</strong>
           <el-tag v-if="!docs" type="info" class="status" data-test="docs-loading">불러오는 중</el-tag>
-          <el-tag v-else-if="docs[a.area]" :type="SPEC_STATUS[docs[a.area].status]?.tag" class="status">
+          <el-tag v-else-if="docs[a.area]" :type="SPEC_STATUS[docs[a.area].status]?.tag" :class="['status', statusClass(docs[a.area].status)]">
             {{ SPEC_STATUS[docs[a.area].status]?.label || docs[a.area].status }}
           </el-tag>
           <el-tag v-else type="info" class="status">미작성</el-tag>
@@ -39,7 +39,7 @@
 </template>
 
 <script setup>
-import { SPEC_STATUS, TECH_AREAS, canAuthorTech, canPlan, specApiMethods } from '@/api/specs'
+import { SPEC_STATUS, TECH_AREAS, canAuthorTech, canPlan, specApiMethods, statusClass } from '@/api/specs'
 import { ElMessage } from 'element-plus'
 import { computed, ref, watch } from 'vue'
 
@@ -90,5 +90,5 @@ watch(() => props.spec.id, loadDocs, { immediate: true })
 .declare { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .status { margin-left: 8px; }
-.meta { color: #909399; font-size: 13px; }
+.meta { color: var(--mt-stone); font-size: 13px; }
 </style>

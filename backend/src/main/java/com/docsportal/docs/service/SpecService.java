@@ -20,13 +20,18 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.docsportal.docs.common.Roles;
 import com.docsportal.docs.format.response.SpecDetailResponse;
+import com.docsportal.docs.format.response.SpecPageResponse;
 import com.docsportal.docs.format.response.SpecSummaryResponse;
+import com.docsportal.docs.live.LiveEventPublisher;
+import com.docsportal.docs.live.LiveEventType;
 import com.docsportal.docs.persistence.SpecAction;
 import com.docsportal.docs.persistence.SpecDocument;
 import com.docsportal.docs.persistence.SpecEvent;
@@ -56,10 +61,12 @@ public class SpecService {
 
     private final SpecDocumentRepository documents;
     private final SpecEventRepository events;
+    private final LiveEventPublisher liveEvents;
 
-    public SpecService(SpecDocumentRepository documents, SpecEventRepository events) {
+    public SpecService(SpecDocumentRepository documents, SpecEventRepository events, LiveEventPublisher liveEvents) {
         this.documents = documents;
         this.events = events;
+        this.liveEvents = liveEvents;
     }
 
     public String template(SpecKind kind) {
@@ -246,6 +253,27 @@ public class SpecService {
             .toList();
     }
 
+    public static final int DEFAULT_PAGE_SIZE = 20;
+    public static final int MAX_PAGE_SIZE = 100;
+
+    /** 제목·작성자 검색(q)과 페이지네이션을 더한 목록. page 는 0부터, size 는 1..100 으로 보정한다(null 이면 20). */
+    @Transactional(readOnly = true)
+    public SpecPageResponse listPage(SpecKind kind, SpecStatus status, String prdId, boolean allVersions, String q,
+                                     Integer page, Integer size) {
+        int safePage = page == null ? 0 : Math.max(page, 0);
+        int safeSize = size == null ? DEFAULT_PAGE_SIZE : Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        String pattern = q == null || q.isBlank() ? null
+            : "%" + q.strip().toLowerCase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        Page<SpecDocument> found = documents.searchPage(kind, status, prdId, allVersions, pattern, PageRequest.of(safePage, safeSize));
+        Map<String, SpecDocument> parents = documents.findAllById(found.getContent().stream()
+                .map(SpecDocument::getPrdId).filter(Objects::nonNull).distinct().toList()).stream()
+            .collect(Collectors.toMap(SpecDocument::getId, Function.identity()));
+        List<SpecSummaryResponse> items = found.getContent().stream()
+            .map(d -> SpecSummaryResponse.from(d, d.getPrdId() != null && d.isBehind(parents.get(d.getPrdId()))))
+            .toList();
+        return new SpecPageResponse(items, found.getTotalElements(), safePage, safeSize);
+    }
+
     @Transactional(readOnly = true)
     public List<SpecSummaryResponse> techDocs(String prdId) {
         SpecDocument prd = find(prdId);
@@ -361,6 +389,9 @@ public class SpecService {
     private void record(SpecDocument doc, Decision decision, SpecActor actor, String comment) {
         events.save(new SpecEvent(doc.getId(), decision.transition().action(), decision.transition().from(), decision.transition().to(),
             actor.username(), decision.actorRole(), comment, Instant.now()));
+        // 모든 상태 전이·본문 수정이 지나는 단일 지점. 본문은 싣지 않고 커밋 뒤에 전달된다
+        liveEvents.publish(LiveEventType.SPEC_CHANGED, doc.getId(), doc.getTitle(), doc.getPrdId(),
+            doc.getStatus() == null ? null : doc.getStatus().name(), actor.username());
     }
 
     private SpecDocument find(String id) {

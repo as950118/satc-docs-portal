@@ -74,7 +74,7 @@
 
         <div class="stats-row spec-stats" v-if="specStatusCounts.length" data-test="spec-status-summary">
           <span class="spec-stats-label">PRD·기술문서</span>
-          <el-tag v-for="c in specStatusCounts" :key="c.status" size="small" :type="SPEC_STATUS[c.status].tag">
+          <el-tag v-for="c in specStatusCounts" :key="c.status" size="small" :type="SPEC_STATUS[c.status].tag" :class="statusClass(c.status)">
             {{ SPEC_STATUS[c.status].label }} {{ c.count }}
           </el-tag>
         </div>
@@ -89,6 +89,7 @@
       :props="specTreeProps"
       node-key="id"
       :default-expanded-keys="specExpandedKeys"
+      :auto-expand-parent="false"
       :current-node-key="currentSpecId"
       highlight-current
       :expand-on-click-node="true"
@@ -107,7 +108,7 @@
           <div class="node-content">
             <span class="node-title">{{ data.title }}</span>
             <div v-if="data.spec" class="file-tags">
-              <el-tag size="small" :type="SPEC_STATUS[data.spec.status]?.tag">{{ statusLabel(data.spec.status) }}</el-tag>
+              <el-tag size="small" :type="SPEC_STATUS[data.spec.status]?.tag" :class="statusClass(data.spec.status)">{{ statusLabel(data.spec.status) }}</el-tag>
               <el-tag v-if="prdChangedLabel(data.spec)" size="small" type="danger" effect="dark">{{ prdChangedLabel(data.spec) }}</el-tag>
             </div>
             <span v-else class="folder-count">
@@ -161,7 +162,8 @@
                 <span class="status-text">
                   {{ data.status === 'UPLOADING' ? '업로드 중' : 
                      data.status === 'INDEXING' ? '인덱싱 중' : 
-                     data.status === 'COMPLETE' ? '완료' : data.status }}
+                     data.status === 'COMPLETE' ? '완료' : 
+                     data.status === 'FAILED' ? '인덱싱 실패' : data.status }}
                 </span>
               </span>
             </div>
@@ -346,11 +348,12 @@
 <script>
 import { documentApi } from '@/api'
 import { authUtils } from '@/api/auth'
-import { SPEC_STATUS, prdChangedLabel, specPath, statusLabel } from '@/api/specs'
+import { SPEC_STATUS, prdChangedLabel, specPath, statusClass, statusLabel } from '@/api/specs'
 import { PRD_FOLDER, TECH_FOLDER, folderKeyOf, useSpecTree } from '@/composables/useSpecTree'
 import { Check, Delete, Document, Folder, FolderAdd, Loading, Plus, Rank, Upload, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { DOCUMENTS_CHANGED } from '@/composables/liveEventsCore'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 export default {
@@ -527,11 +530,16 @@ export default {
         completedDocuments: 0
       }
       
+      window.addEventListener(DOCUMENTS_CHANGED, reloadFromLive)
       await loadInitialData()
     })
 
-    const loadInitialData = async () => {
-      loading.value = true
+    // 실시간 이벤트(다른 사용자의 변경, 재연결)로 트리와 통계를 조용히 다시 읽는다.
+    const reloadFromLive = () => loadInitialData(true)
+    onBeforeUnmount(() => window.removeEventListener(DOCUMENTS_CHANGED, reloadFromLive))
+
+    const loadInitialData = async (silent = false) => {
+      if (!silent) loading.value = true
       try {
         // 루트 레벨 데이터만 로드
         const response = await fetchDocumentTree()
@@ -1424,6 +1432,7 @@ export default {
       loadDocumentStatistics,
       SPEC_STATUS,
       statusLabel,
+      statusClass,
       prdChangedLabel,
       specsLoaded,
       specTree,
@@ -1450,8 +1459,8 @@ export default {
 /* 헤더 섹션 */
 .tree-header-section {
   flex-shrink: 0;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--mt-surface);
+  border-bottom: 1px solid var(--mt-hairline);
   padding: 24px;
 }
 
@@ -1464,14 +1473,14 @@ export default {
 .main-title {
   font-size: 22px;
   font-weight: 600;
-  color: #1a202c;
+  color: var(--mt-ink);
   margin: 0 0 6px 0;
   text-shadow: none;
 }
 
 .main-subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--mt-steel);
   margin: 0;
 }
 
@@ -1504,11 +1513,11 @@ export default {
 .stats-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  background: var(--mt-surface-soft);
+  border-radius: var(--mt-r-lg);
+  border: 1px solid var(--mt-hairline);
 }
 
 .stats-row {
@@ -1537,31 +1546,30 @@ export default {
 }
 
 .stat-folder-icon {
-  color: #f59e0b;
+  color: var(--mt-warn);
   font-size: 18px;
 }
 
 .stat-file-icon {
-  color: #64748b;
+  color: var(--mt-steel);
   font-size: 18px;
 }
 
 .stat-num {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--mt-ink);
   line-height: 1;
 }
 
 .stat-text {
-  font-size: 11px;
-  color: #64748b;
+  font-size: 13px;
+  color: var(--mt-steel);
   font-weight: 500;
-  text-transform: uppercase;
 }
 
 .stat-separator {
-  color: #cbd5e1;
+  color: var(--mt-hairline);
   margin: 0 12px;
   font-weight: 300;
 }
@@ -1582,7 +1590,7 @@ export default {
 }
 
 .status-uploading .stat-status-icon {
-  color: #f59e0b !important;
+  color: var(--mt-warn) !important;
   animation: spin 2s linear infinite;
 }
 
@@ -1601,23 +1609,34 @@ export default {
 }
 
 .status-indexing .stat-status-icon {
-  color: #3b82f6 !important;
+  color: var(--mt-ink) !important;
 }
 
 .status-completed .stat-status-icon {
-  color: #10b981;
+  color: var(--mt-green-deep);
 }
 
 .status-uploading .stat-num {
-  color: #f59e0b !important;
+  color: var(--mt-warn) !important;
 }
 
 .status-indexing .stat-num {
-  color: #3b82f6 !important;
+  color: var(--mt-ink) !important;
 }
 
 .status-completed .stat-num {
-  color: #10b981;
+  color: var(--mt-green-deep);
+}
+
+/* FAILED 상태 - 인덱싱 실패 */
+.status-failed {
+  background: transparent !important;
+  color: var(--mt-error, #c0392b) !important;
+  border-color: var(--mt-error, #c0392b) !important;
+}
+
+.status-failed .status-text {
+  color: var(--mt-error, #c0392b) !important;
 }
 
 @keyframes spin {
@@ -1701,16 +1720,16 @@ div.stat-box.status-indexing,
 }
 
 .tree-content-section::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--mt-surface);
 }
 
 .tree-content-section::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--mt-hairline);
   border-radius: 3px;
 }
 
 .tree-content-section::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--mt-stone);
 }
 
 /* 프리미엄 삭제 다이얼로그 스타일 */
@@ -1725,10 +1744,10 @@ div.stat-box.status-indexing,
 }
 
 :deep(.premium-delete-dialog .el-message-box__header) {
-  background: linear-gradient(135deg, #fef1f1 0%, #fde2e2 50%, #fecaca 100%);
+  background: #fbeeee;
   border-radius: 20px 20px 0 0;
   padding: 32px 32px 20px;
-  border-bottom: 1px solid rgba(239, 68, 68, 0.08);
+  border-bottom: 1px solid rgba(212,86,86, 0.08);
   position: relative;
 }
 
@@ -1739,20 +1758,20 @@ div.stat-box.status-indexing,
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
+  background: var(--mt-error);
 }
 
 :deep(.premium-delete-dialog .el-message-box__title) {
-  color: #b91c1c;
+  color: var(--mt-error);
   font-weight: 700;
   font-size: 20px;
   text-align: center;
-  text-shadow: 0 1px 2px rgba(185, 28, 28, 0.1);
+  text-shadow: none;
 }
 
 :deep(.premium-delete-dialog .el-message-box__content) {
   padding: 32px;
-  background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+  background: #ffffff;
 }
 
 :deep(.premium-delete-dialog .el-message-box__message) {
@@ -1768,7 +1787,7 @@ div.stat-box.status-indexing,
 :deep(.delete-title) {
   font-size: 16px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--mt-ink);
   margin-bottom: 20px;
   line-height: 1.5;
 }
@@ -1777,10 +1796,10 @@ div.stat-box.status-indexing,
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: linear-gradient(135deg, #fef7f7 0%, #fef2f2 100%);
+  background: #fbeeee;
   padding: 20px;
   border-radius: 16px;
-  border: 1px solid rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(212,86,86, 0.1);
   margin-top: 16px;
 }
 
@@ -1792,19 +1811,19 @@ div.stat-box.status-indexing,
 
 :deep(.warning-text) {
   font-size: 14px;
-  color: #7f1d1d;
+  color: var(--mt-error);
   line-height: 1.6;
   text-align: left;
 }
 
 :deep(.warning-text strong) {
-  color: #991b1b;
+  color: var(--mt-error);
   font-weight: 600;
 }
 
 :deep(.premium-delete-dialog .el-message-box__btns) {
   padding: 24px 32px 32px;
-  background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+  background: #ffffff;
   border-radius: 0 0 20px 20px;
   gap: 16px;
   display: flex;
@@ -1818,18 +1837,18 @@ div.stat-box.status-indexing,
 :deep(.el-message-box__btns .premium-delete-btn.el-button.el-button--primary),
 :deep(.premium-delete-dialog .el-message-box__btns .premium-delete-btn),
 :deep(.premium-delete-dialog .el-message-box__btns .el-button.premium-delete-btn) {
-  background-color: #ef4444 !important;
-  background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-  border-color: #ef4444 !important;
-  border: 2px solid #dc2626 !important;
+  background-color: var(--mt-error) !important;
+  background-image: var(--mt-error) !important;
+  background: var(--mt-error) !important;
+  border-color: var(--mt-error) !important;
+  border: 2px solid var(--mt-error) !important;
   border-radius: 12px !important;
   padding: 14px 28px !important;
   font-weight: 600 !important;
   font-size: 14px !important;
   color: #ffffff !important;
   box-shadow: 
-    0 4px 12px rgba(239, 68, 68, 0.4),
+    0 4px 12px rgba(212,86,86, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   transition: all 0.3s ease !important;
   min-width: 100px !important;
@@ -1841,13 +1860,13 @@ div.stat-box.status-indexing,
 :deep(.el-message-box__btns .premium-delete-btn.el-button.el-button--primary:hover),
 :deep(.premium-delete-dialog .el-message-box__btns .premium-delete-btn:hover),
 :deep(.premium-delete-dialog .el-message-box__btns .el-button.premium-delete-btn:hover) {
-  background-color: #dc2626 !important;
-  background-image: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-  border-color: #dc2626 !important;
+  background-color: var(--mt-error) !important;
+  background-image: var(--mt-error) !important;
+  background: var(--mt-error) !important;
+  border-color: var(--mt-error) !important;
   transform: translateY(-2px) !important;
   box-shadow: 
-    0 8px 20px rgba(239, 68, 68, 0.5),
+    0 8px 20px rgba(212,86,86, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   color: #ffffff !important;
 }
@@ -1860,46 +1879,46 @@ div.stat-box.status-indexing,
 :deep(.premium-delete-dialog .el-message-box__btns .el-button.premium-delete-btn:active) {
   transform: translateY(0) !important;
   box-shadow: 
-    0 2px 8px rgba(239, 68, 68, 0.4),
+    0 2px 8px rgba(212,86,86, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-  background-color: #b91c1c !important;
-  background-image: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
-  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
-  border-color: #b91c1c !important;
+  background-color: var(--mt-error) !important;
+  background-image: var(--mt-error) !important;
+  background: var(--mt-error) !important;
+  border-color: var(--mt-error) !important;
   color: #ffffff !important;
 }
 
 /* Element Plus 기본 스타일 완전 오버라이드 */
 :deep(.el-button--primary.premium-delete-btn),
 :deep(.el-button--danger.premium-delete-btn) {
-  --el-button-bg-color: #ef4444 !important;
-  --el-button-border-color: #ef4444 !important;
-  --el-button-hover-bg-color: #dc2626 !important;
-  --el-button-hover-border-color: #dc2626 !important;
-  --el-button-active-bg-color: #b91c1c !important;
-  --el-button-active-border-color: #b91c1c !important;
-  --el-color-danger: #ef4444 !important;
-  --el-color-danger-light-3: #dc2626 !important;
-  --el-color-danger-dark-2: #b91c1c !important;
+  --el-button-bg-color: var(--mt-error) !important;
+  --el-button-border-color: var(--mt-error) !important;
+  --el-button-hover-bg-color: var(--mt-error) !important;
+  --el-button-hover-border-color: var(--mt-error) !important;
+  --el-button-active-bg-color: var(--mt-error) !important;
+  --el-button-active-border-color: var(--mt-error) !important;
+  --el-color-danger: var(--mt-error) !important;
+  --el-color-danger-light-3: var(--mt-error) !important;
+  --el-color-danger-dark-2: var(--mt-error) !important;
 }
 
 /* Danger 버튼 추가 스타일 */
 :deep(.el-message-box__btns .premium-delete-btn.el-button--danger),
 :deep(.premium-delete-dialog .el-message-box__btns .premium-delete-btn.el-button--danger) {
-  background-color: #ef4444 !important;
-  background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-  border-color: #ef4444 !important;
-  border: 2px solid #dc2626 !important;
+  background-color: var(--mt-error) !important;
+  background-image: var(--mt-error) !important;
+  background: var(--mt-error) !important;
+  border-color: var(--mt-error) !important;
+  border: 2px solid var(--mt-error) !important;
   color: #ffffff !important;
 }
 
 /* 프리미엄 취소 버튼 */
 :deep(.premium-cancel-btn),
 :deep(.premium-cancel-btn.el-button) {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
-  color: #64748b !important;
-  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: var(--mt-steel) !important;
+  border: 1px solid var(--mt-hairline) !important;
   border-radius: 12px !important;
   padding: 14px 28px !important;
   font-weight: 500 !important;
@@ -1913,9 +1932,9 @@ div.stat-box.status-indexing,
 
 :deep(.premium-cancel-btn:hover),
 :deep(.premium-cancel-btn.el-button:hover) {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
-  border-color: #cbd5e1 !important;
-  color: #475569 !important;
+  background: var(--mt-surface) !important;
+  border-color: var(--mt-hairline) !important;
+  color: var(--mt-slate) !important;
   transform: translateY(-1px) !important;
   box-shadow: 
     0 4px 8px rgba(0, 0, 0, 0.1),
@@ -1928,16 +1947,16 @@ div.stat-box.status-indexing,
   box-shadow: 
     0 1px 2px rgba(0, 0, 0, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
-  color: #475569 !important;
+  background: var(--mt-surface) !important;
+  color: var(--mt-slate) !important;
 }
 
 .tree-node {
   display: flex;
   align-items: center;
   flex: 1;
-  padding: 12px 16px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: var(--mt-r-md);
   transition: all 0.2s ease;
   position: relative;
   margin: 0 -4px;
@@ -1945,33 +1964,32 @@ div.stat-box.status-indexing,
 }
 
 .tree-node:hover {
-  background: #f1f5f9;
-  transform: translateX(2px);
+  background: var(--mt-surface);
 }
 
 .node-icon {
-  margin-right: 14px;
+  margin-right: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--mt-r-sm);
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 .folder-icon {
-  color: #f59e0b;
+  color: var(--mt-warn);
   font-size: 20px;
-  background: rgba(245, 158, 11, 0.1);
+  background: transparent;
   border-radius: 8px;
 }
 
 .file-icon {
-  color: #64748b;
+  color: var(--mt-steel);
   font-size: 18px;
-  background: rgba(100, 116, 139, 0.1);
+  background: transparent;
   border-radius: 8px;
 }
 
@@ -1986,9 +2004,10 @@ div.stat-box.status-indexing,
 
 .node-title {
   font-weight: 500;
-  color: #1e293b;
-  font-size: 14px;
+  color: var(--mt-ink);
+  font-size: 15px;
   line-height: 1.4;
+  letter-spacing: -0.01em;
   transition: all 0.2s ease;
 }
 
@@ -2012,14 +2031,14 @@ div.stat-box.status-indexing,
 }
 
 .file-extension {
-  color: #64748b;
-  font-size: 10px;
+  color: var(--mt-steel);
+  font-size: 12px;
   font-weight: 600;
-  background: #f1f5f9;
+  background: var(--mt-surface);
   padding: 2px 6px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  border: 1px solid var(--mt-hairline);
+  font-family: var(--mt-font-mono);
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
@@ -2027,71 +2046,71 @@ div.stat-box.status-indexing,
 .status-tag {
   display: inline-flex;
   align-items: center;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 6px;
-  gap: 3px;
+  padding: 2px 8px;
+  border-radius: var(--mt-r-full);
+  gap: 4px;
   border-width: 1px;
   border-style: solid;
   flex-shrink: 0;
 }
 
 .status-icon {
-  font-size: 10px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
 .status-text {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 /* UPLOADING 상태 - 주황색 */
 .status-uploading {
-  background: #fef3e2 !important;
-  color: #451a03 !important;
-  border-color: #fed7aa !important;
+  background: #fbf3e3 !important;
+  color: var(--mt-warn) !important;
+  border-color: #f0cccc !important;
 }
 
 .status-uploading .status-icon {
-  color: #451a03 !important;
+  color: var(--mt-warn) !important;
   animation: spin 1s linear infinite;
 }
 
 .status-uploading .status-text {
-  color: #451a03 !important;
+  color: var(--mt-warn) !important;
 }
 
 /* INDEXING 상태 - 파란색 */
 .status-indexing {
-  background: #eff6ff !important;
-  color: #172554 !important;
-  border-color: #bfdbfe !important;
+  background: var(--mt-green-tint) !important;
+  color: var(--mt-ink) !important;
+  border-color: var(--mt-hairline) !important;
 }
 
 .status-indexing .status-icon {
-  color: #172554 !important;
+  color: var(--mt-ink) !important;
 }
 
 .status-indexing .status-text {
-  color: #172554 !important;
+  color: var(--mt-ink) !important;
 }
 
 /* COMPLETE 상태 - 초록색 */
 .status-complete {
-  background: #f0fdf4 !important;
-  color: #052e16 !important;
-  border-color: #bbf7d0 !important;
+  background: var(--mt-green-tint) !important;
+  color: var(--mt-ink) !important;
+  border-color: var(--mt-hairline) !important;
 }
 
 .status-complete .status-icon {
-  color: #052e16 !important;
+  color: var(--mt-ink) !important;
 }
 
 .status-complete .status-text {
-  color: #052e16 !important;
+  color: var(--mt-ink) !important;
 }
 
 @keyframes spin {
@@ -2107,30 +2126,29 @@ div.stat-box.status-indexing,
 .tree-node .status-indexing,
 .tree-node .status-indexing .status-text,
 .tree-node .status-indexing .status-icon {
-  color: #172554 !important;
+  color: var(--mt-ink) !important;
 }
 
 .tree-node .status-uploading,
 .tree-node .status-uploading .status-text,
 .tree-node .status-uploading .status-icon {
-  color: #451a03 !important;
+  color: var(--mt-warn) !important;
 }
 
 .tree-node .status-complete,
 .tree-node .status-complete .status-text,
 .tree-node .status-complete .status-icon {
-  color: #052e16 !important;
+  color: var(--mt-ink) !important;
 }
 
 .folder-count {
-  color: #64748b;
-  font-size: 11px;
+  color: var(--mt-stone);
+  font-size: 12px;
   font-weight: 400;
-  opacity: 0.8;
 }
 
 .no-documents {
-  color: #9ca3af;
+  color: var(--mt-stone);
   font-style: italic;
   opacity: 0.7;
 }
@@ -2162,42 +2180,42 @@ div.stat-box.status-indexing,
 }
 
 .upload-btn {
-  color: #3b82f6;
+  color: var(--mt-ink);
 }
 
 .upload-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
+  background: rgba(0,180,138, 0.1);
+  color: var(--mt-ink);
   transform: scale(1.1);
 }
 
 .folder-add-btn {
-  color: #8b5cf6;
+  color: var(--mt-steel);
 }
 
 .folder-add-btn:hover {
-  background: rgba(139, 92, 246, 0.1);
-  color: #7c3aed;
+  background: rgba(10,10,10, 0.08);
+  color: var(--mt-steel);
   transform: scale(1.1);
 }
 
 .move-btn {
-  color: #10b981;
+  color: var(--mt-green-deep);
 }
 
 .move-btn:hover {
-  background: rgba(16, 185, 129, 0.1);
-  color: #059669;
+  background: rgba(0,180,138, 0.1);
+  color: var(--mt-green-deep);
   transform: scale(1.1);
 }
 
 .delete-btn {
-  color: #ef4444;
+  color: var(--mt-error);
 }
 
 .delete-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: rgba(212,86,86, 0.1);
+  color: var(--mt-error);
   transform: scale(1.1);
 }
 
@@ -2223,12 +2241,12 @@ div.stat-box.status-indexing,
 }
 
 :deep(.el-tree-node__content:hover) {
-  background: #f8fafc;
+  background: var(--mt-surface);
   border-color: transparent;
 }
 
 :deep(.el-tree-node__expand-icon) {
-  color: #64748b;
+  color: var(--mt-steel);
   font-size: 16px;
   margin-right: 12px;
   transition: all 0.2s ease;
@@ -2236,7 +2254,7 @@ div.stat-box.status-indexing,
 
 :deep(.el-tree-node__expand-icon.expanded) {
   transform: rotate(90deg);
-  color: #3b82f6;
+  color: var(--mt-ink);
 }
 
 :deep(.el-tree-node__label) {
@@ -2244,38 +2262,16 @@ div.stat-box.status-indexing,
   font-size: 0;
 }
 
-:deep(.el-button--primary) {
-  background: linear-gradient(135deg, #000080 0%, #000066 100%);
-  border: none;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 128, 0.2);
-  transition: all 0.3s ease;
-}
-
-:deep(.el-button--primary:hover) {
-  background: linear-gradient(135deg, #000066 0%, #000050 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 128, 0.3);
-}
-
+:deep(.el-button--primary),
 :deep(.el-button--success) {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border: none;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
-  transition: all 0.3s ease;
-}
-
-:deep(.el-button--success:hover) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  border-radius: var(--mt-r-full);
+  box-shadow: none;
 }
 
 /* 이동 정보 영역 스타일 */
 .move-info {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: var(--mt-green-tint);
+  border: 1px solid rgba(0,180,138, 0.2);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 20px;
@@ -2283,12 +2279,12 @@ div.stat-box.status-indexing,
 
 .move-info p {
   margin: 8px 0;
-  color: #1e40af;
+  color: var(--mt-ink);
   font-size: 14px;
 }
 
 .move-info strong {
-  color: #1d4ed8;
+  color: var(--mt-ink);
   font-weight: 600;
 }
 
@@ -2301,7 +2297,7 @@ div.stat-box.status-indexing,
 }
 
 :deep(.el-tree__empty-text) {
-  color: #9ca3af !important;
+  color: var(--mt-stone) !important;
   font-size: 14px !important;
   font-weight: 400 !important;
   line-height: 1.4 !important;
@@ -2313,9 +2309,9 @@ div.stat-box.status-indexing,
 }
 
 .spec-stats-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: #000080;
+  color: var(--mt-green-text);
   margin-right: 4px;
 }
 
@@ -2326,12 +2322,12 @@ div.stat-box.status-indexing,
 
 .spec-tree {
   padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--mt-hairline);
 }
 
 .spec-folder-icon {
-  color: #000080;
-  background: rgba(0, 0, 128, 0.08);
+  color: var(--mt-green-deep);
+  background: rgba(0,180,138, 0.08);
 }
 
 .spec-tree .tree-node:hover .node-content {
@@ -2339,8 +2335,9 @@ div.stat-box.status-indexing,
 }
 
 .spec-tree :deep(.el-tree-node.is-current > .el-tree-node__content) {
-  background: rgba(0, 0, 128, 0.06);
-  border-color: rgba(0, 0, 128, 0.15);
+  background: var(--mt-green-tint);
+  border-color: transparent;
+  box-shadow: inset 3px 0 0 var(--mt-green);
 }
 
 .new-spec-btn {

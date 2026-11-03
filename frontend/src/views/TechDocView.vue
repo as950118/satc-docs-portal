@@ -2,12 +2,12 @@
   <el-main class="spec-editor" v-loading="loading">
     <div class="toolbar">
       <div class="title-line">
-        <el-button link @click="$router.push(`/specs?kind=${kind || 'PRD'}`)">&larr; 목록</el-button>
+        <el-button link @click="goBack(router, `/specs?kind=${kind || 'PRD'}`)">&larr; 목록</el-button>
         <h2>{{ isNew ? `새 ${kindMeta?.label || '기술문서'}` : kindMeta?.label }}</h2>
-        <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" effect="dark" data-test="status-tag">
+        <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" :class="statusClass(spec.status)" effect="dark" data-test="status-tag">
           {{ SPEC_STATUS[spec.status]?.label || spec.status }}
         </el-tag>
-        <el-tag v-if="spec?.status === 'APPROVED'" type="success" effect="dark" data-test="approved-badge">승인됨</el-tag>
+        <el-tag v-if="spec?.status === 'APPROVED'" type="success" class="st-approved" effect="dark" data-test="approved-badge">승인됨</el-tag>
       </div>
       <div class="actions">
         <el-button v-if="editable" type="primary" :loading="saving" data-test="save" @click="save">저장</el-button>
@@ -17,11 +17,18 @@
       </div>
     </div>
 
+    <el-alert v-if="staleNotice" type="warning" :closable="false" show-icon class="notice" data-test="stale-banner">
+      <template #title>
+        다른 사용자가 이 기술문서를 변경했습니다. 편집 중인 내용은 그대로 두었습니다.
+        <el-button link type="primary" data-test="stale-refresh" @click="refreshSpec">새로고침</el-button>
+      </template>
+    </el-alert>
+
     <div v-if="prd" class="prd-link" data-test="prd-link">
       상위 PRD:
       <router-link :to="`/specs/${prd.id}`">{{ prd.title }}</router-link>
       <el-tag size="small" effect="plain">v{{ prd.revision }}</el-tag>
-      <el-tag size="small" :type="SPEC_STATUS[prd.status]?.tag">{{ SPEC_STATUS[prd.status]?.label || prd.status }}</el-tag>
+      <el-tag size="small" :type="SPEC_STATUS[prd.status]?.tag" :class="statusClass(prd.status)">{{ SPEC_STATUS[prd.status]?.label || prd.status }}</el-tag>
     </div>
 
     <el-alert v-if="spec?.prdChanged" type="error" :closable="false" show-icon class="notice" data-test="prd-changed">
@@ -48,7 +55,7 @@
 
     <el-input v-model="title" placeholder="제목" :readonly="!editable" class="title-input" />
 
-    <div class="panes">
+    <div class="panes" ref="panesRef">
       <el-input v-if="editable" v-model="body" type="textarea" :rows="28" resize="none" class="pane" placeholder="Markdown" />
       <div class="pane preview markdown-body" data-test="preview" v-html="rendered"></div>
     </div>
@@ -79,12 +86,16 @@
 </template>
 
 <script setup>
-import { AREA_META, SPEC_KIND, SPEC_STATUS, actionLabel, canAuthorTech, canImplement, canReview, specApiMethods, statusLabel } from '@/api/specs'
+import { AREA_META, SPEC_KIND, SPEC_STATUS, actionLabel, canAuthorTech, canImplement, canReview, specApiMethods, statusClass, statusLabel } from '@/api/specs'
 import ImplementationPanel from '@/components/ImplementationPanel.vue'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
-import { computed, ref, watch } from 'vue'
+import { goBack } from '@/utils/nav'
+import { useSyncScroll } from '@/composables/useSyncScroll'
+import { getClientId } from '@/api/clientId'
+import { LIVE_EVENT } from '@/composables/liveEventsCore'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const md = new MarkdownIt({ html: false, linkify: true })
@@ -111,6 +122,9 @@ const editable = computed(() =>
 const canDecide = computed(() => reviewer.value && spec.value?.status === 'IN_REVIEW')
 const inImpl = computed(() => ['IN_IMPLEMENTATION', 'IMPL_IN_REVIEW', 'IMPLEMENTED'].includes(spec.value?.status))
 const rendered = computed(() => md.render(body.value || ''))
+
+const panesRef = ref(null)
+useSyncScroll(panesRef, editable)
 
 const apply = (data) => {
   spec.value = data
@@ -227,6 +241,37 @@ const requestChanges = () => run(async () => {
   ElMessage.success('변경을 요청했습니다.')
 })
 
+// 실시간 이벤트: 열어 둔 기술문서가 다른 사용자에게 바뀌면 편집 중이 아닐 때만 다시 읽고, 편집 중이면 배너만 띄운다.
+const staleNotice = ref(false)
+const isEditing = () => editable.value && !!spec.value && (title.value !== spec.value.title || body.value !== spec.value.body)
+const refreshSpec = async () => {
+  await load()
+  staleNotice.value = false
+}
+const onLiveEvent = async (e) => {
+  const evt = e.detail
+  if (evt?.type !== 'spec.changed' || isNew.value || evt.id !== route.params.id) return
+  if (evt.originId === getClientId()) return
+  if (isEditing()) {
+    staleNotice.value = true
+    return
+  }
+  try {
+    const data = await specApiMethods.get(route.params.id)
+    if (!isEditing()) {
+      apply(data)
+      await loadPrd(data.prdId)
+    } else {
+      staleNotice.value = true
+    }
+  } catch (err) {
+    console.error('스펙 재조회 실패:', err)
+  }
+}
+watch(() => route.params.id, () => { staleNotice.value = false })
+onMounted(() => window.addEventListener(LIVE_EVENT, onLiveEvent))
+onBeforeUnmount(() => window.removeEventListener(LIVE_EVENT, onLiveEvent))
+
 watch(() => [route.params.id, route.params.prdId, route.query.area], load, { immediate: true })
 </script>
 
@@ -240,8 +285,8 @@ watch(() => [route.params.id, route.params.prdId, route.query.area], load, { imm
 .notice, .title-input { margin-bottom: 16px; }
 .panes { display: flex; gap: 16px; }
 .pane { flex: 1; min-width: 0; }
-.preview { background: #fff; border: 1px solid #dcdfe6; border-radius: 4px; padding: 12px 16px; max-height: 640px; overflow: auto; }
+.preview { background: var(--mt-canvas); border: 1px solid var(--mt-hairline); border-radius: var(--mt-r-sm); padding: 12px 16px; max-height: 640px; overflow: auto; }
 .decision { margin-top: 16px; }
-.error { color: #f56c6c; font-size: 13px; margin-top: 4px; }
-.meta { color: #909399; font-size: 13px; }
+.error { color: var(--mt-error); font-size: 13px; margin-top: 4px; }
+.meta { color: var(--mt-stone); font-size: 13px; }
 </style>

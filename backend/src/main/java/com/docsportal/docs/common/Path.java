@@ -11,11 +11,16 @@ public class Path {
     public static final String DOCS                         =   "/docs";
     public static final String AUTH                         =   "/auth";
     public static final String SPECS                        =   "/specs";
+    public static final String EVENTS                       =   "/events";
 
 
     // 회원 관리
     public static final String API_AUTH                     =   API_COMMON + AUTH;
     public static final String API_AUTH_ID                  =   API_AUTH + "/{userId}";
+
+
+    // 실시간 알림(SSE)
+    public static final String API_EVENTS                   =   API_COMMON + EVENTS;
 
 
     // 문서(DOCS)
@@ -31,14 +36,19 @@ public class Path {
     public static final String API_DOCS_MOVE                =   API_DOCS + "/move";
     public static final String API_DOCS_POSITION            =   API_DOCS + "/position";
     public static final String API_DOCS_STATUS              =   API_DOCS + "/status";
+    public static final String API_DOCS_CONTENT             =   API_DOCS + "/{documentId}/content";
+    public static final String API_DOCS_INDEXED             =   API_DOCS + "/indexed/{documentId}";
     public static final String API_DOCS_SEARCH              =   API_DOCS + "/search";
     public static final String API_DOCS_STATISTICS          =   API_DOCS + "/statistics";
     public static final String API_DOCS_FOLDERS             =   API_DOCS + "/folders";
     public static final String API_DOCS_SYNC                =   API_DOCS + "/sync";
+    public static final String API_DOCS_STANDARD            =   API_DOCS + "/standard";
+    public static final String API_DOCS_STANDARD_HISTORY    =   API_DOCS_STANDARD + "/history";
 
 
     // 스펙 워크플로우(SPECS)
     public static final String API_SPECS                    =   API_COMMON + SPECS;
+    public static final String API_SPECS_PAGE               =   API_SPECS + "/page";
     public static final String API_SPECS_ID                 =   API_SPECS + "/{specId}";
     public static final String API_SPECS_APPROVE            =   API_SPECS_ID + "/approve";
     public static final String API_SPECS_SUBMIT             =   API_SPECS_ID + "/submit";

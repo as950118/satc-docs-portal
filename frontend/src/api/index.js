@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import { apiBaseUrl } from '@/config'
+import { withClientId } from './clientId'
 
 // API 클라이언트 설정
 const api = axios.create({
@@ -16,7 +17,7 @@ api.interceptors.request.use(
   (config) => {
     // 요청 전 처리 (예: 토큰 추가)
     console.log('API 요청:', config.method?.toUpperCase(), config.url)
-    return config
+    return withClientId(config)
   },
   (error) => {
     return Promise.reject(error)
@@ -107,6 +108,12 @@ export const documentApi = {
   // 문서 통계 조회
   getDocumentStatistics: () => api.get('/docs/statistics'),
   
+  // 업로드 문서 본문 (MinIO). 응답 형식: { data: 본문 }
+  getDocumentContent: (docId) => api.get(`/docs/${docId}/content`),
+
+  // 색인 전용 문서 본문 (포털 DB·MinIO 에 없고 검색 색인에만 있는 문서)
+  getIndexedDocument: (docId) => api.get(`/docs/indexed/${docId}`),
+
   // 문서 검색
   searchDocuments: (query) => {
     if (!query || query.trim() === '') {

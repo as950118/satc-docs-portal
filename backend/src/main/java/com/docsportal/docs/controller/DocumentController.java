@@ -8,6 +8,8 @@ import static com.docsportal.docs.common.Path.API_DOCS_ID;
 import static com.docsportal.docs.common.Path.API_DOCS_MOVE;
 import static com.docsportal.docs.common.Path.API_DOCS_MULTIPLE;
 import static com.docsportal.docs.common.Path.API_DOCS_ROOT;
+import static com.docsportal.docs.common.Path.API_DOCS_CONTENT;
+import static com.docsportal.docs.common.Path.API_DOCS_INDEXED;
 import static com.docsportal.docs.common.Path.API_DOCS_SEARCH;
 import static com.docsportal.docs.common.Path.API_DOCS_STATISTICS;
 import static com.docsportal.docs.common.Path.API_DOCS_STATUS;
@@ -15,6 +17,7 @@ import static com.docsportal.docs.common.Path.API_DOCS_TREE;
 import static com.docsportal.docs.common.Path.API_DOCS_TREE_FULL;
 import static com.docsportal.docs.common.Path.API_DOCS_TREE_PARENT;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -38,18 +41,24 @@ import com.docsportal.docs.format.response.DocumentStatisticsResponse;
 import com.docsportal.docs.format.response.DocumentTreeResponse;
 import com.docsportal.docs.format.response.FolderListResponse;
 import com.docsportal.docs.format.response.SearchResultResponse;
+import com.docsportal.docs.live.OriginIdHolder;
 import com.docsportal.docs.service.DocumentService;
 import com.docsportal.docs.service.ExternalService;
+import com.docsportal.docs.service.SpecSearchService;
+import com.docsportal.docs.format.response.SearchResultItem;
 
 @RestController
 public class DocumentController {
 
     private final DocumentService documentService;
     private final ExternalService externalService;
+    private final SpecSearchService specSearchService;
 
-    public DocumentController(DocumentService documentService, ExternalService externalService) {
+    public DocumentController(DocumentService documentService, ExternalService externalService,
+                              SpecSearchService specSearchService) {
         this.documentService = documentService;
         this.externalService = externalService;
+        this.specSearchService = specSearchService;
     }
 
     // 문서 업로드 (비동기)
@@ -69,7 +78,8 @@ public class DocumentController {
             }
             
             // Service에서 비동기 처리
-            documentService.uploadDocumentAsync(file, parentId);
+            // @Async 스레드에서는 요청 헤더를 읽을 수 없어 여기서 읽어 넘긴다
+            documentService.uploadDocumentAsync(file, parentId, OriginIdHolder.current());
             
             // 즉시 true 응답 반환
             return RestResponse.responseOk(true);
@@ -346,6 +356,28 @@ public class DocumentController {
         }
     }
 
+    // 업로드 문서 본문 조회 (MinIO)
+    @GetMapping(value = API_DOCS_CONTENT)
+    public RestResponse<String> documentContent(@PathVariable("documentId") String documentId) {
+        String content = documentService.getDocumentContent(documentId);
+        if (content == null) {
+            return new RestResponse<>(java.time.LocalDateTime.now().toString(),
+                "문서 본문을 찾을 수 없습니다.", null, HttpStatus.NOT_FOUND.value());
+        }
+        return RestResponse.responseOk(content);
+    }
+
+    // 색인 전용 문서(MinIO 파일 없음) 본문 조회
+    @GetMapping(value = API_DOCS_INDEXED)
+    public RestResponse<java.util.Map<String, Object>> indexedDocument(@PathVariable("documentId") String documentId) {
+        java.util.Map<String, Object> doc = externalService.getIndexedDocument(documentId);
+        if (doc == null) {
+            return new RestResponse<>(java.time.LocalDateTime.now().toString(),
+                "색인에서 문서를 찾을 수 없습니다.", null, HttpStatus.NOT_FOUND.value());
+        }
+        return RestResponse.responseOk(doc);
+    }
+
     // 문서 검색
     @GetMapping(value = API_DOCS_SEARCH)
     public RestResponse<SearchResultResponse> searchDocuments(@RequestParam("q") String query) {
@@ -359,7 +391,19 @@ public class DocumentController {
                 );
             }
 
-            SearchResultResponse searchResult = externalService.searchDocuments(query.trim());
+            SearchResultResponse uploaded = externalService.searchDocuments(query.trim());
+            // PRD·기술문서는 ES 에 없으므로 DB 에서 따로 찾아 앞쪽에 합친다
+            List<SearchResultItem> specs = specSearchService.search(query.trim());
+            List<SearchResultItem> merged = new ArrayList<>(specs);
+            if (uploaded.getResults() != null) {
+                merged.addAll(uploaded.getResults());
+            }
+            SearchResultResponse searchResult = new SearchResultResponse(
+                uploaded.getQuery() != null ? uploaded.getQuery() : query.trim(),
+                (uploaded.getTotalResults() != null ? uploaded.getTotalResults() : 0) + specs.size(),
+                merged.size(),
+                uploaded.getMaxScore(),
+                merged);
             return RestResponse.responseOk(searchResult);
         } catch (Exception e) {
             return new RestResponse<>(
