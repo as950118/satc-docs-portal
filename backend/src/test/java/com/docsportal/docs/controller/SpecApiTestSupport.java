@@ -28,6 +28,7 @@ import com.docsportal.docs.live.SseHub;
 import com.docsportal.docs.service.AccountSeeder;
 import com.docsportal.docs.service.AuthService;
 import com.docsportal.docs.service.AuthServiceImpl;
+import com.docsportal.docs.service.SpecExportService;
 import com.docsportal.docs.service.SpecService;
 import com.jayway.jsonpath.JsonPath;
 
@@ -60,7 +61,7 @@ abstract class SpecApiTestSupport {
     void resetStoreAndMvc() {
         events.deleteAll();
         documents.deleteAll();
-        mvc = MockMvcBuilders.standaloneSetup(new SpecController(specService, auth)).build();
+        mvc = MockMvcBuilders.standaloneSetup(new SpecController(specService, new SpecExportService(documents), auth)).build();
     }
 
     protected String login(String username) {
