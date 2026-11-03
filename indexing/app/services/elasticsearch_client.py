@@ -406,11 +406,17 @@ class ElasticsearchClient:
             logger.info(f"Attempting to delete chunks for document ID: {document_id}")
             self._ensure_index_exists()
             
-            # Query to find chunks with matching document_id in metadata
+            # Query to find chunks with matching document_id in metadata.
+            # 인덱스에서 metadata.document_id 가 keyword 로 매핑되면 하위 필드 .keyword 가 없어서
+            # .keyword 만 조회하면 아무것도 지워지지 않았다. 두 매핑 모두에서 지워지도록 둘 다 본다.
             query = {
                 "query": {
-                    "term": {
-                        "metadata.document_id.keyword": document_id
+                    "bool": {
+                        "should": [
+                            {"term": {"metadata.document_id": document_id}},
+                            {"term": {"metadata.document_id.keyword": document_id}},
+                        ],
+                        "minimum_should_match": 1,
                     }
                 }
             }

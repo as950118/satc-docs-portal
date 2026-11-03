@@ -105,87 +105,18 @@ const decide = async (action, message) => {
 </script>
 
 <style scoped>
-.consent-page {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 48px 20px;
-  background: #f5f7fb;
-}
-
-.consent-card {
-  width: 100%;
-  max-width: 560px;
-  background: #fff;
-  border-radius: 20px;
-  padding: 40px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), 0 10px 30px rgba(0, 0, 128, 0.08);
-  border: 1px solid #e0e6ed;
-}
-
-.consent-header {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.consent-logo {
-  width: 110px;
-  height: auto;
-  margin-bottom: 12px;
-  filter: brightness(0) saturate(100%) invert(13%) sepia(100%) saturate(7471%) hue-rotate(240deg) brightness(95%) contrast(106%);
-}
-
-.consent-header h1 {
-  color: #000080;
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.client-name {
-  text-align: center;
-  font-size: 20px;
-  font-weight: 700;
-  color: #222;
-  margin: 0 0 12px;
-  word-break: break-all;
-}
-
-.lead {
-  color: #555;
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0 0 20px;
-}
-
-.details code {
-  font-size: 13px;
-  word-break: break-all;
-}
-
-.role {
-  margin-right: 6px;
-}
-
-.notice {
-  margin-top: 16px;
-}
-
-.actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.actions .el-button {
-  flex: 1;
-  height: 46px;
-  border-radius: 12px;
-  font-weight: 600;
-}
-
-.actions .approve {
-  background: linear-gradient(135deg, #000080 0%, #000066 100%);
-  border: none;
-}
+.consent-page { display: flex; justify-content: center; align-items: flex-start; padding: 48px 20px; background: var(--mt-canvas); font-family: var(--mt-font); }
+.consent-card { width: 100%; max-width: 560px; background: var(--mt-canvas); border-radius: var(--mt-r-xl); padding: 40px; box-shadow: var(--mt-shadow-sm); border: 1px solid var(--mt-hairline); }
+.consent-header { text-align: center; margin-bottom: 24px; }
+.consent-logo { width: 110px; height: auto; margin-bottom: 12px; }
+.consent-header h1 { color: var(--mt-ink); font-size: 22px; font-weight: 600; letter-spacing: -0.3px; margin: 0; }
+.client-name { text-align: center; font-size: 20px; font-weight: 600; color: var(--mt-ink); margin: 0 0 12px; word-break: break-all; }
+.lead { color: var(--mt-steel); font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+.details code { font-family: var(--mt-font-mono); font-size: 13px; word-break: break-all; }
+.role { margin-right: 6px; }
+.notice { margin-top: 16px; }
+.actions { display: flex; gap: 12px; margin-top: 24px; }
+.actions .el-button { flex: 1; height: 46px; border-radius: var(--mt-r-full); font-weight: 600; }
+.actions .approve { background: var(--mt-primary); color: var(--mt-on-primary); border: none; }
+.actions .approve:hover { background: var(--mt-charcoal); }
 </style>

@@ -22,7 +22,12 @@ import org.springframework.stereotype.Service;
 import com.docsportal.docs.format.request.DocumentSyncRequest;
 import com.docsportal.docs.format.response.DocumentSyncResponse;
 import com.docsportal.docs.format.response.DocumentSyncResponse.Result;
+import com.docsportal.docs.live.LiveEventPublisher;
+import com.docsportal.docs.live.LiveEventType;
 import com.docsportal.docs.persistence.DocumentEntity;
+import com.docsportal.docs.persistence.DocumentEvent;
+import com.docsportal.docs.persistence.DocumentEventAction;
+import com.docsportal.docs.repository.DocumentEventRepository;
 import com.docsportal.docs.persistence.DocumentStatus;
 import com.docsportal.docs.repository.DocsRepository;
 
@@ -41,27 +46,33 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
     private final ExternalService externalService;
     private final DocumentService documentService;
     private final Clock clock;
+    private final LiveEventPublisher liveEvents;
+    private final DocumentEventRepository eventRepository;
 
     @Value("${minio.bucket-name}")
     private String bucketName;
 
     @Autowired
     public DocumentSyncServiceImpl(MinioClient minioClient, DocsRepository docsRepository,
-                                   ExternalService externalService, DocumentService documentService) {
-        this(minioClient, docsRepository, externalService, documentService, Clock.systemUTC());
+                                   ExternalService externalService, DocumentService documentService,
+                                   LiveEventPublisher liveEvents, DocumentEventRepository eventRepository) {
+        this(minioClient, docsRepository, externalService, documentService, liveEvents, eventRepository, Clock.systemUTC());
     }
 
     DocumentSyncServiceImpl(MinioClient minioClient, DocsRepository docsRepository,
-                            ExternalService externalService, DocumentService documentService, Clock clock) {
+                            ExternalService externalService, DocumentService documentService,
+                            LiveEventPublisher liveEvents, DocumentEventRepository eventRepository, Clock clock) {
+        this.eventRepository = eventRepository;
         this.minioClient = minioClient;
         this.docsRepository = docsRepository;
         this.externalService = externalService;
         this.documentService = documentService;
         this.clock = clock;
+        this.liveEvents = liveEvents;
     }
 
     @Override
-    public DocumentSyncResponse sync(DocumentSyncRequest request) {
+    public DocumentSyncResponse sync(DocumentSyncRequest request, UploadActor actor) {
         validate(request);
         Instant now = Instant.now(clock);
 
@@ -77,7 +88,7 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
         }
 
         if (found.isEmpty()) {
-            return create(request, now);
+            return create(request, now, actor);
         }
 
         DocumentEntity document = found.get();
@@ -92,14 +103,21 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
         putObject(document.getFilePath(), request);
         document.markSynced(request.sourceCommit(), request.contentHash(), now);
         document.updateStatus(DocumentStatus.INDEXING);
+        if (actor != null) {
+            document.recordActor(actor.userId(), actor.username(), false);
+            eventRepository.save(new DocumentEvent(document.getId(), DocumentEventAction.UPDATED, actor.userId(), actor.username(),
+                request.contentHash(), request.sourceCommit(), now));
+        }
         docsRepository.save(document);
 
         externalService.reindexDocument(bucketName, document.getId() + "." + document.getExtension(), document.getFilePath());
+        liveEvents.publish(LiveEventType.DOCUMENT_UPDATED, document.getId(), document.getTitle(), document.getParentId(),
+            DocumentStatus.INDEXING.name(), null);
         logger.info("[SYNC] Updated: {} ({})", request.sourceKey(), document.getId());
         return new DocumentSyncResponse(document.getId(), Result.UPDATED, DocumentStatus.INDEXING);
     }
 
-    private DocumentSyncResponse create(DocumentSyncRequest request, Instant now) {
+    private DocumentSyncResponse create(DocumentSyncRequest request, Instant now, UploadActor actor) {
         documentService.createBucketIfNotExists();
 
         String documentId = UUID.randomUUID().toString();
@@ -124,9 +142,16 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
             .build();
         document.attachSource(request.sourceKey(), request.sourceRepo(), request.sourcePath());
         document.markSynced(request.sourceCommit(), request.contentHash(), now);
+        if (actor != null) {
+            document.recordActor(actor.userId(), actor.username(), true);
+            eventRepository.save(new DocumentEvent(documentId, DocumentEventAction.CREATED, actor.userId(), actor.username(),
+                request.contentHash(), request.sourceCommit(), now));
+        }
         docsRepository.save(document);
 
         externalService.notifyDocumentUploaded(bucketName, filePath);
+        liveEvents.publish(LiveEventType.DOCUMENT_CREATED, documentId, title, parentId,
+            DocumentStatus.INDEXING.name(), null);
         logger.info("[SYNC] Created: {} ({})", request.sourceKey(), documentId);
         return new DocumentSyncResponse(documentId, Result.CREATED, DocumentStatus.INDEXING);
     }

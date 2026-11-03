@@ -42,7 +42,7 @@
     <div v-else-if="searchData && searchData.totalResults === 0" class="no-results">
       <el-empty description="검색 결과가 없습니다">
         <template #image>
-          <el-icon size="64" color="#909399"><Search /></el-icon>
+          <el-icon size="64" color="var(--mt-stone)"><Search /></el-icon>
         </template>
         <div class="no-results-text">
           <p>"{{ searchData.query }}"에 대한 검색 결과가 없습니다.</p>
@@ -67,7 +67,8 @@
           <div class="result-header">
             <div class="result-title">
               <el-icon><Document /></el-icon>
-              <span class="document-title">{{ (result.title || `문서 #${index + 1}`) + '.md' }}</span>
+              <span class="document-title">{{ (result.title || `문서 #${index + 1}`) + (result.specKind ? '' : '.md') }}</span>
+              <span v-if="result.specKind" class="spec-badge">{{ result.objectName }}</span>
             </div>
             <div class="result-id">{{ result.documentId }}</div>
           </div>
@@ -85,7 +86,8 @@
           <div class="result-footer">
             <div class="result-path">
               <el-icon><Folder /></el-icon>
-              <template v-if="result.breadcrumb && Array.isArray(result.breadcrumb) && result.breadcrumb.length > 0">
+              <template v-if="result.specKind">{{ result.objectName }}</template>
+              <template v-else-if="result.breadcrumb && Array.isArray(result.breadcrumb) && result.breadcrumb.length > 0">
                 <span v-for="(crumb, crumbIndex) in result.breadcrumb" :key="crumb.id || crumbIndex">
                   {{ crumb.title }}<span v-if="crumbIndex < result.breadcrumb.length - 1">/</span>
                 </span>
@@ -170,7 +172,18 @@ const getFileName = (objectName) => {
 </script>
 
 <style scoped>
+.spec-badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mt-green-deep);
+  border: 1px solid var(--mt-hairline);
+  border-radius: var(--mt-r-md);
+}
+
 .search-results {
+  font-family: var(--mt-font);
   padding: 20px;
   width: 100%;
   height: 100vh;
@@ -183,20 +196,20 @@ const getFileName = (objectName) => {
 .search-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid var(--mt-hairline);
 }
 
 .back-button {
-  background-color: white !important;
-  color: #606266 !important;
-  border: 1px solid #dcdfe6 !important;
+  background-color: var(--mt-canvas) !important;
+  color: var(--mt-steel) !important;
+  border: 1px solid var(--mt-hairline) !important;
   transition: all 0.2s ease;
 }
 
 .back-button:hover {
-  background-color: #f5f7fa !important;
-  color: #409eff !important;
-  border-color: #c6e2ff !important;
+  background-color: var(--mt-surface) !important;
+  color: var(--mt-green-deep) !important;
+  border-color: var(--mt-hairline) !important;
 }
 
 .back-button-floating {
@@ -204,22 +217,22 @@ const getFileName = (objectName) => {
   top: 20px;
   right: 20px;
   z-index: 10;
-  color: #000080 !important;
+  color: var(--mt-ink) !important;
   font-weight: 500;
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 128, 0.2);
-  border-radius: 8px;
+  border: 1px solid var(--mt-hairline);
+  border-radius: var(--mt-r-md);
   padding: 8px 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(10, 10, 10, 0.06);
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
 }
 
 .back-button-floating:hover {
-  background: rgba(0, 0, 128, 0.05) !important;
-  border-color: rgba(0, 0, 128, 0.4);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
+  background: var(--mt-surface) !important;
+  border-color: var(--mt-ink);
+  box-shadow: 0 4px 12px rgba(10, 10, 10, 0.08);
+  transform: none;
 }
 
 .search-info {
@@ -233,7 +246,7 @@ const getFileName = (objectName) => {
   margin: 0 0 8px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--mt-ink);
 }
 
 .search-meta {
@@ -241,29 +254,29 @@ const getFileName = (objectName) => {
   align-items: center;
   gap: 16px;
   font-size: 14px;
-  color: #606266;
+  color: var(--mt-steel);
 }
 
 .search-query {
   font-weight: 700;
-  color: #409eff;
+  color: var(--mt-green-deep);
 }
 
 .search-text {
   font-weight: 600;
-  color: #303133;
+  color: var(--mt-ink);
 }
 
 .search-count {
   font-weight: 400;
   font-size: 16px;
-  color: #606266;
+  color: var(--mt-steel);
   margin-top: 5px;
   margin-left: 5px;
 }
 
 .search-time {
-  color: #c0c4cc;
+  color: var(--mt-muted);
 }
 
 .loading-container {
@@ -273,7 +286,7 @@ const getFileName = (objectName) => {
 
 .loading-text {
   margin-top: 16px;
-  color: #909399;
+  color: var(--mt-stone);
   font-size: 14px;
 }
 
@@ -288,7 +301,7 @@ const getFileName = (objectName) => {
 
 .no-results-text p {
   margin: 8px 0;
-  color: #606266;
+  color: var(--mt-steel);
 }
 
 .results-container {
@@ -304,14 +317,14 @@ const getFileName = (objectName) => {
 
 .stats-text {
   font-size: 15px;
-  color: #909399;
+  color: var(--mt-stone);
   font-weight: 400;
   letter-spacing: 0.2px;
 }
 
 .max-score {
   font-weight: 600;
-  color: #409eff;
+  color: var(--mt-green-deep);
 }
 
 .results-list {
@@ -321,18 +334,18 @@ const getFileName = (objectName) => {
 }
 
 .result-item {
-  border: 1px solid #e4e7ed;
-  border-radius: 12px;
+  border: 1px solid var(--mt-hairline);
+  border-radius: var(--mt-r-lg);
   padding: 20px;
-  background: #ffffff;
+  background: var(--mt-canvas);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .result-item:hover {
-  border-color: #409eff;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.1);
-  transform: translateY(-2px);
+  border-color: var(--mt-green-deep);
+  box-shadow: 0 4px 12px rgba(10, 10, 10, 0.06);
+  transform: none;
 }
 
 .result-header {
@@ -348,18 +361,18 @@ const getFileName = (objectName) => {
   gap: 8px;
   font-weight: 600;
   font-size: 22px;
-  color: #303133;
+  color: var(--mt-ink);
 }
 
 .document-title {
-  color: rgb(0, 0, 128);
+  color: var(--mt-ink);
   font-weight: 600;
 }
 
 .result-id {
   font-size: 12px;
-  color: #c0c4cc;
-  font-family: 'Monaco', 'Menlo', monospace;
+  color: var(--mt-muted);
+  font-family: var(--mt-font-mono);
 }
 
 
@@ -370,20 +383,20 @@ const getFileName = (objectName) => {
 .highlight-snippet {
   margin: 8px 0;
   padding: 12px;
-  background: #f8f9fa;
-  border-left: 3px solid rgba(0, 0, 128, 0.3);
-  border-radius: 4px;
+  background: var(--mt-surface-soft);
+  border-left: 3px solid var(--mt-green);
+  border-radius: var(--mt-r-sm);
   line-height: 1.6;
-  color: #606266;
+  color: var(--mt-steel);
 }
 
 .highlight-snippet :deep(em) {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--mt-green-tint);
+  color: var(--mt-ink);
   font-style: normal;
   font-weight: 600;
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: var(--mt-r-xs);
 }
 
 /* Markdown 렌더링 스타일 */
@@ -394,7 +407,7 @@ const getFileName = (objectName) => {
 .highlight-snippet :deep(h5),
 .highlight-snippet :deep(h6) {
   margin: 8px 0 4px 0;
-  color: #303133;
+  color: var(--mt-ink);
   font-weight: 600;
 }
 
@@ -410,16 +423,16 @@ const getFileName = (objectName) => {
 
 .highlight-snippet :deep(strong) {
   font-weight: 600;
-  color: #303133;
+  color: var(--mt-ink);
 }
 
 .highlight-snippet :deep(code) {
-  background: #f1f2f6;
+  background: var(--mt-surface);
   padding: 2px 4px;
-  border-radius: 3px;
-  font-family: 'Monaco', 'Menlo', monospace;
+  border-radius: var(--mt-r-xs);
+  font-family: var(--mt-font-mono);
   font-size: 12px;
-  color: #e96900;
+  color: var(--mt-slate);
 }
 
 .highlight-snippet :deep(ul),
@@ -435,8 +448,8 @@ const getFileName = (objectName) => {
 .highlight-snippet :deep(blockquote) {
   margin: 8px 0;
   padding: 8px 12px;
-  background: #f8f9fa;
-  border-left: 3px solid rgba(0, 0, 128, 0.3);
+  background: var(--mt-surface-soft);
+  border-left: 3px solid var(--mt-green);
   font-style: italic;
 }
 
@@ -448,22 +461,22 @@ const getFileName = (objectName) => {
 
 .highlight-snippet :deep(th),
 .highlight-snippet :deep(td) {
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--mt-hairline);
   padding: 6px 8px;
   text-align: left;
 }
 
 .highlight-snippet :deep(th) {
-  background: #f5f7fa;
+  background: var(--mt-surface);
   font-weight: 600;
-  color: #303133;
+  color: var(--mt-ink);
 }
 
 
 .result-footer {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid var(--mt-hairline-soft);
 }
 
 .result-path {
@@ -471,8 +484,8 @@ const getFileName = (objectName) => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #909399;
-  font-family: 'Monaco', 'Menlo', monospace;
+  color: var(--mt-stone);
+  font-family: var(--mt-font-mono);
 }
 
 /* 반응형 디자인 */

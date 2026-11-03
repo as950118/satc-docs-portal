@@ -22,6 +22,9 @@ public interface ExternalService {
      * @return 포맷팅된 검색 결과
      */
     SearchResultResponse searchDocuments(String query);
+
+    /** 색인 서비스에 저장된 문서 본문을 가져온다. 없으면 null. MinIO 에 파일이 없는 색인 전용 문서를 열 때 쓴다. */
+    java.util.Map<String, Object> getIndexedDocument(String documentId);
     
     /**
      * 문서 삭제 후 외부 Indexing Server에 삭제된 문서 목록을 전달합니다.

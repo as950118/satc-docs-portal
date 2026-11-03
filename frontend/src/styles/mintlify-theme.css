@@ -1,0 +1,140 @@
+/*
+ * Mintlify 디자인 시스템 토큰 + Element Plus 테마 오버라이드
+ * 출처: https://getdesign.md/design-md/mintlify/DESIGN.md
+ * 각 화면의 <style> 은 하드코딩 색상 대신 아래 --mt-* 변수를 사용한다.
+ */
+:root {
+  /* brand */
+  --mt-primary: #0a0a0a;
+  --mt-on-primary: #ffffff;
+  --mt-green: #00d4a4;
+  --mt-green-deep: #00b48a;
+  --mt-green-soft: #7cebcb;
+  --mt-green-tint: #e6faf5;
+  --mt-green-text: #007a5e;
+  --mt-info: #3772cf;
+  --mt-warn: #c37d0d;
+  --mt-error: #d45656;
+  --mt-success: #0b7a56;
+
+  /* neutrals */
+  --mt-canvas: #ffffff;
+  --mt-surface: #f7f7f7;
+  --mt-surface-soft: #fafafa;
+  --mt-surface-code: #1c1c1e;
+  --mt-hairline: #e5e5e5;
+  --mt-hairline-soft: #ededed;
+  --mt-ink: #0a0a0a;
+  --mt-charcoal: #1c1c1e;
+  --mt-slate: #3a3a3c;
+  --mt-steel: #5a5a5c;
+  --mt-stone: #6b6b6d;
+  --mt-muted: #a8a8aa;
+
+  /* radius */
+  --mt-r-xs: 4px;
+  --mt-r-sm: 6px;
+  --mt-r-md: 8px;
+  --mt-r-lg: 12px;
+  --mt-r-xl: 16px;
+  --mt-r-full: 9999px;
+
+  /* shadow (Mintlify 는 그림자보다 hairline 위주) */
+  --mt-shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.04);
+  --mt-shadow-md: 0 4px 16px rgba(10, 10, 10, 0.06);
+
+  /* font */
+  --mt-font: Inter, 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  --mt-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ---- Element Plus 매핑 ---- */
+  --el-font-family: var(--mt-font);
+  --el-color-primary: #0a0a0a;
+  --el-color-primary-light-3: #5a5a5c;
+  --el-color-primary-light-5: #888888;
+  --el-color-primary-light-7: #d4d4d4;
+  --el-color-primary-light-8: #e5e5e5;
+  --el-color-primary-light-9: #f2f2f2;
+  --el-color-primary-dark-2: #1c1c1e;
+  --el-color-success: #0b7a56;
+  --el-color-warning: #c37d0d;
+  --el-color-danger: #d45656;
+  --el-color-error: #d45656;
+  --el-color-info: #6b6b6d;
+  --el-text-color-primary: #0a0a0a;
+  --el-text-color-regular: #3a3a3c;
+  --el-text-color-secondary: #5a5a5c;
+  --el-text-color-placeholder: #a8a8aa;
+  --el-border-color: #e5e5e5;
+  --el-border-color-light: #ededed;
+  --el-border-color-lighter: #f2f2f2;
+  --el-fill-color-light: #f7f7f7;
+  --el-fill-color-lighter: #fafafa;
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #ffffff;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 9999px;
+}
+
+html, body, #app {
+  font-family: var(--mt-font);
+  color: var(--mt-ink);
+  background: var(--mt-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, kbd, samp { font-family: var(--mt-font-mono); }
+
+/* 버튼: 기본(primary)은 검정 pill, 강조는 green */
+.el-button { font-weight: 500; border-radius: var(--mt-r-full); }
+.el-button--primary { --el-button-hover-bg-color: #1c1c1e; --el-button-hover-border-color: #1c1c1e; --el-button-active-bg-color: #1c1c1e; --el-button-active-border-color: #1c1c1e; }
+.el-button--success { --el-button-bg-color: var(--mt-green); --el-button-border-color: var(--mt-green); --el-button-text-color: #0a0a0a; --el-button-hover-bg-color: var(--mt-green-deep); --el-button-hover-border-color: var(--mt-green-deep); --el-button-hover-text-color: #0a0a0a; }
+.el-button.is-circle { border-radius: 50%; }
+
+/* 입력 */
+.el-input__wrapper, .el-textarea__inner, .el-select__wrapper { border-radius: var(--mt-r-md); box-shadow: 0 0 0 1px var(--mt-hairline) inset; }
+.el-input__wrapper.is-focus, .el-textarea__inner:focus, .el-select__wrapper.is-focused { box-shadow: 0 0 0 1px var(--mt-green-deep) inset, 0 0 0 3px rgba(0, 212, 164, 0.18); }
+
+/* 카드/다이얼로그/드롭다운 */
+.el-card, .el-dialog { border-radius: var(--mt-r-lg); border: 1px solid var(--mt-hairline); box-shadow: var(--mt-shadow-sm); }
+.el-popper.is-light { border-radius: var(--mt-r-md); border-color: var(--mt-hairline); }
+.el-tag { border-radius: var(--mt-r-full); }
+
+/* 태그: 연한 초록 배경 위에서도 읽히도록 텍스트를 진하게 */
+.el-tag.el-tag--success { --el-tag-text-color: var(--mt-green-text); --el-tag-bg-color: var(--mt-green-tint); --el-tag-border-color: #bdf0e2; }
+.el-tag--warning { --el-tag-text-color: #8a5a00; }
+.el-tag--danger { --el-tag-text-color: #a83a3a; }
+.el-tag--info { --el-tag-text-color: var(--mt-steel); }
+
+/* 마크다운 본문 공통 타이포 (PRD/기술문서 미리보기 등) */
+.markdown-body { font-size: 15px; line-height: 1.7; color: var(--mt-slate); }
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 { color: var(--mt-ink); font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; margin: 1.6em 0 0.6em; }
+.markdown-body h1 { font-size: 28px; margin-top: 0; }
+.markdown-body h2 { font-size: 22px; padding-bottom: 6px; border-bottom: 1px solid var(--mt-hairline-soft); }
+.markdown-body h3 { font-size: 18px; }
+.markdown-body h4 { font-size: 16px; }
+.markdown-body p { margin: 0.6em 0; }
+.markdown-body a { color: var(--mt-ink); text-decoration: underline; text-decoration-color: var(--mt-green); text-underline-offset: 3px; }
+.markdown-body code { font-family: var(--mt-font-mono); font-size: 13px; background: var(--mt-surface); border: 1px solid var(--mt-hairline); border-radius: var(--mt-r-xs); padding: 1px 5px; }
+.markdown-body pre { background: var(--mt-surface-code); color: #f5f5f5; border-radius: var(--mt-r-md); padding: 14px 16px; overflow: auto; }
+.markdown-body pre code { background: none; border: none; padding: 0; color: inherit; }
+.markdown-body table { border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+.markdown-body th { background: var(--mt-surface); font-weight: 600; text-align: left; }
+.markdown-body th, .markdown-body td { border: 1px solid var(--mt-hairline); padding: 6px 12px; }
+.markdown-body blockquote { margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--mt-green); color: var(--mt-steel); }
+
+/* 기본 링크(보라색 visited 방지) */
+a { color: var(--mt-ink); text-decoration-color: var(--mt-green); text-underline-offset: 3px; }
+
+/* ---- 상태별 라벨 색상 (SPEC_STATUS → .st-*) ---- */
+.el-tag.st-draft, .el-tag.el-tag--dark.st-draft                       { --el-tag-text-color: #4a4a4c; --el-tag-bg-color: #efefef; --el-tag-border-color: #dcdcdc; }
+.el-tag.st-prd-approved, .el-tag.el-tag--dark.st-prd-approved         { --el-tag-text-color: #1f5bb5; --el-tag-bg-color: #e8f0fd; --el-tag-border-color: #bcd3f6; }
+.el-tag.st-spec-approved, .el-tag.el-tag--dark.st-spec-approved       { --el-tag-text-color: #5a43c2; --el-tag-bg-color: #eeeafc; --el-tag-border-color: #cfc5f4; }
+.el-tag.st-in-review, .el-tag.el-tag--dark.st-in-review               { --el-tag-text-color: #8a5a00; --el-tag-bg-color: #fdf3d9; --el-tag-border-color: #f1d993; }
+.el-tag.st-changes-requested, .el-tag.el-tag--dark.st-changes-requested { --el-tag-text-color: #a5302f; --el-tag-bg-color: #fcebeb; --el-tag-border-color: #f2c1c1; }
+.el-tag.st-approved, .el-tag.el-tag--dark.st-approved                 { --el-tag-text-color: #17703f; --el-tag-bg-color: #e3f6ea; --el-tag-border-color: #b3e3c4; }
+.el-tag.st-in-implementation, .el-tag.el-tag--dark.st-in-implementation { --el-tag-text-color: #0a6a84; --el-tag-bg-color: #e1f4f8; --el-tag-border-color: #a9dce8; }
+.el-tag.st-impl-in-review, .el-tag.el-tag--dark.st-impl-in-review     { --el-tag-text-color: #a14a0a; --el-tag-bg-color: #fdeedd; --el-tag-border-color: #f4cc9f; }
+.el-tag.st-implemented, .el-tag.el-tag--dark.st-implemented           { --el-tag-text-color: #ffffff; --el-tag-bg-color: #0b7a56; --el-tag-border-color: #0b7a56; font-weight: 600; }
+.el-tag.st-superseded, .el-tag.el-tag--dark.st-superseded             { --el-tag-text-color: #6b6b6d; --el-tag-bg-color: #f7f7f7; --el-tag-border-color: #e5e5e5; text-decoration: line-through; }

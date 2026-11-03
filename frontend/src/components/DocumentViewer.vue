@@ -75,10 +75,24 @@
         검색 결과로 돌아가기
       </el-button>
 
+      <el-alert
+        v-if="staleNotice"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="live-notice"
+        data-test="stale-banner"
+      >
+        <template #title>
+          문서가 수정되었습니다.
+          <el-button link type="primary" data-test="stale-refresh" @click="refreshContent">새로고침</el-button>
+        </template>
+      </el-alert>
+
       <!-- 문서 헤더 -->
       <div class="document-header">
         <div class="document-title">
-          <el-icon style="margin-right: 8px; color: #000080;">
+          <el-icon style="margin-right: 8px; color: var(--mt-ink);">
             <Document />
           </el-icon>
           <h2>{{ document.title }}</h2>
@@ -93,7 +107,8 @@
             <span class="status-text">
               {{ document.status === 'UPLOADING' ? '업로드 중' : 
                  document.status === 'INDEXING' ? '인덱싱 중' : 
-                 document.status === 'COMPLETE' ? '완료' : document.status }}
+                 document.status === 'COMPLETE' ? '완료' : 
+                 document.status === 'FAILED' ? '인덱싱 실패' : document.status }}
             </span>
           </span>
         </div>
@@ -144,7 +159,12 @@ import { authUtils } from '@/api/auth'
 import { ArrowLeft, Check, Loading, Search, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
-import { computed, ref, watch } from 'vue'
+import { getClientId } from '@/api/clientId'
+import { LIVE_EVENT } from '@/composables/liveEventsCore'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { specPath } from '@/api/specs'
+import { goBack } from '@/utils/nav'
 import SearchResults from './SearchResults.vue'
 
 export default {
@@ -160,6 +180,8 @@ export default {
   },
   emits: ['document-update', 'open-document'],
   setup(props, { emit }) {
+    const router = useRouter()
+    const route = useRoute()
     const fileContent = ref(null)
     const contentLoading = ref(false)
     const contentError = ref('')
@@ -174,6 +196,7 @@ export default {
     const searchLoading = ref(false)
     const searchError = ref(null)
     const searchResponseTime = ref(null)
+    let lastSearchedQuery = null
     const fromSearchResults = ref(false) // 검색 결과에서 온 문서인지 추적
 
     // Markdown 렌더러 설정
@@ -205,7 +228,7 @@ export default {
     }
 
     const loadFileContent = async () => {
-      if (!props.document?.filePath) {
+      if (!props.document?.filePath && !props.document?.indexOnly) {
         contentError.value = '파일 경로가 없습니다.'
         return
       }
@@ -226,7 +249,19 @@ export default {
         console.log('파일 로딩 시작:', props.document.filePath)
         
         // MinIO에서 직접 파일 내용 가져오기
-        const content = await documentApi.downloadFromMinioDirectly(props.document.filePath)
+        let res
+        let content
+        if (props.document.indexOnly) {
+          // MinIO 파일이 없는 색인 전용 문서는 색인 서비스에서 본문을 받는다
+          res = await documentApi.getIndexedDocument(props.document.id)
+          content = res.data?.data?.content
+        } else {
+          res = await documentApi.getDocumentContent(props.document.id)
+          content = res.data?.data
+        }
+        if (typeof content !== 'string') {
+          throw new Error(res.data?.errorMessage || '문서 본문이 없습니다.')
+        }
         fileContent.value = content
         console.log('파일 로딩 성공:', content.length, '바이트')
 
@@ -340,20 +375,31 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
     }
 
     // 검색 실행
+    // 검색어는 URL(?q=)에 담아 히스토리에 남긴다. 그래서 문서를 열었다가 뒤로가기 하면 검색 결과로 돌아온다.
     const performSearch = async () => {
-      if (!searchQuery.value || searchQuery.value.trim() === '') {
+      const q = (searchQuery.value || '').trim()
+      if (!q) {
         ElMessage.warning('검색어를 입력해주세요.')
         return
       }
+      if (route.path === '/' && route.query.q === q && !route.query.d) {
+        await runSearch(q) // 같은 검색어 재검색: 주소가 같아 이동이 일어나지 않으므로 직접 실행
+      } else {
+        router.push({ path: '/', query: { q } })
+      }
+    }
 
+    const runSearch = async (query) => {
+      searchQuery.value = query
+      lastSearchedQuery = query
       searchLoading.value = true
       searchError.value = null
       searchResults.value = null
       showSearchResults.value = true
 
       try {
-        console.log('검색 실행:', searchQuery.value)
-        const response = await documentApi.searchDocuments(searchQuery.value)
+        console.log('검색 실행:', query)
+        const response = await documentApi.searchDocuments(query)
         
         searchResults.value = response.data.data
         searchResponseTime.value = response.data.responseTime
@@ -370,22 +416,44 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
       }
     }
 
-    // 검색 결과 닫기
-    const closeSearchResults = () => {
+    // 검색 화면 상태만 초기화 (주소는 건드리지 않음)
+    const resetSearch = () => {
       showSearchResults.value = false
       searchQuery.value = ''
       searchResults.value = null
       searchError.value = null
       fromSearchResults.value = false
+      lastSearchedQuery = null
     }
+
+    // 검색 결과 닫기 (X/뒤로 버튼): 주소의 검색어도 함께 지운다
+    const closeSearchResults = () => {
+      resetSearch()
+      if (route.query.q) router.push({ path: '/' })
+    }
+
+    // 주소(?q=, ?d=)를 따라 검색 결과 화면을 복원한다 (뒤로/앞으로 가기, 새로고침 포함)
+    watch(
+      () => [route.path, route.query.q, route.query.d],
+      ([path, q, d]) => {
+        if (path !== '/') return
+        if (q && !d) {
+          showSearchResults.value = true
+          fromSearchResults.value = false
+          if (q !== lastSearchedQuery || (!searchResults.value && !searchLoading.value)) runSearch(String(q))
+        } else if (q && d) {
+          showSearchResults.value = false
+          fromSearchResults.value = true
+        } else if (showSearchResults.value) {
+          resetSearch()
+        }
+      },
+      { immediate: true }
+    )
 
     // 검색 결과로 돌아가기
     const backToSearchResults = () => {
-      if (searchResults.value) {
-        showSearchResults.value = true
-        fromSearchResults.value = false
-        emit('open-document', null) // 문서 선택 해제
-      }
+      goBack(router, { path: '/', query: { q: route.query.q || searchQuery.value } })
     }
 
     // 검색창 포커스 처리
@@ -395,13 +463,19 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
     // 검색 결과에서 문서 열기
     const handleOpenDocument = (result) => {
+      // PRD·기술문서는 업로드 문서가 아니라 스펙 화면으로 이동한다
+      if (result.specKind) {
+        router.push(specPath({ id: result.documentId, kind: result.specKind }))
+        return
+      }
       console.log('검색 결과에서 문서 열기:', result)
       
       // 검색 결과 정보로 문서 객체 생성 (DocumentViewer에 필요한 최소 정보)
       const documentObject = {
         id: result.documentId,
         title: result.title,
-        filePath: result.objectName, // MinIO 파일 경로
+        filePath: result.objectName, // MinIO 파일 경로 (색인 전용 문서는 null)
+        indexOnly: !!result.indexOnly,
         extension: 'md', // 대부분 마크다운 파일
         isFolder: false,
         status: 'COMPLETE', // 검색된 문서는 완료된 상태
@@ -413,18 +487,41 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
       
       // 검색 결과에서 온 문서임을 표시
       fromSearchResults.value = true
-      
-      console.log('fromSearchResults 설정 후:', fromSearchResults.value)
-      
+
       emit('open-document', documentObject)
-      
+
+      // 히스토리에 항목을 추가해서 뒤로가기 하면 검색 결과로 돌아오게 한다. 문서 정보는 history.state 에 담는다.
+      router.push({ path: '/', query: { q: route.query.q || searchQuery.value, d: '1' }, state: { doc: documentObject } })
+
       // 검색 결과 화면은 닫지 않고 숨김 (돌아가기 위해 유지)
       showSearchResults.value = false
     }
 
 
+    // 실시간 이벤트: 열어 둔 문서가 다른 사용자에게 수정되면 본문은 그대로 두고 배너만, 삭제되면 안내 후 선택 해제
+    const staleNotice = ref(false)
+    const refreshContent = async () => {
+      await loadFileContent()
+      staleNotice.value = false
+    }
+    const onLiveEvent = (e) => {
+      const evt = e.detail
+      const current = props.document
+      if (!current || !evt || evt.id !== current.id) return
+      if (evt.type === 'document.updated' && evt.originId !== getClientId()) {
+        staleNotice.value = true
+      } else if (evt.type === 'document.deleted') {
+        ElMessage.warning('문서가 삭제되었습니다')
+        staleNotice.value = false
+        emit('document-update', null)
+      }
+    }
+    onMounted(() => window.addEventListener(LIVE_EVENT, onLiveEvent))
+    onBeforeUnmount(() => window.removeEventListener(LIVE_EVENT, onLiveEvent))
+
     // 문서가 변경될 때 내용 로드
-    watch(() => props.document, (newDoc) => {
+    watch(() => props.document, (newDoc, oldDoc) => {
+      if (newDoc?.id !== oldDoc?.id) staleNotice.value = false
       console.log('문서 변경 감지:', newDoc)
       console.log('현재 fromSearchResults:', fromSearchResults.value)
       
@@ -435,7 +532,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
         if (!newDoc.fromSearch) {
           console.log('트리에서 선택된 문서 - 검색 결과 닫기')
           if (showSearchResults.value) {
-            closeSearchResults()
+            resetSearch()
           }
           fromSearchResults.value = false
         } else {
@@ -461,6 +558,8 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
       renderedContent,
       formatDate,
       loadFileContent,
+      staleNotice,
+      refreshContent,
       isAdmin,
       // 검색 관련
       searchQuery,
@@ -483,7 +582,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 <style scoped>
 .document-viewer {
   height: 100%;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: var(--mt-surface);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   overflow: hidden;
@@ -513,8 +612,8 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   justify-content: space-between;
   align-items: center;
   padding: 24px 32px;
-  border-bottom: 1px solid rgba(228, 231, 237, 0.6);
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-bottom: 1px solid rgba(10,10,10, 0.08);
+  background: #ffffff;
   backdrop-filter: blur(10px);
   position: relative;
 }
@@ -526,7 +625,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(0, 0, 128, 0.2) 50%, transparent 100%);
+  background: rgba(0,180,138, 0.2);
 }
 
 .document-title {
@@ -539,7 +638,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .back-to-search-btn:hover {
-  background-color: rgba(0, 0, 128, 0.1) !important;
+  background-color: rgba(0,180,138, 0.1) !important;
   border-radius: 6px;
 }
 
@@ -548,10 +647,10 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   top: 20px;
   right: 20px;
   z-index: 10;
-  color: #000080 !important;
+  color: var(--mt-green-deep) !important;
   font-weight: 500;
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 128, 0.2);
+  border: 1px solid rgba(0,180,138, 0.2);
   border-radius: 8px;
   padding: 8px 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -560,30 +659,30 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .back-to-search-btn-floating:hover {
-  background: rgba(0, 0, 128, 0.05) !important;
-  border-color: rgba(0, 0, 128, 0.4);
+  background: rgba(0,180,138, 0.05) !important;
+  border-color: rgba(0,180,138, 0.4);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
 }
 
 .document-title h2 {
   margin: 0;
-  color: #1a202c;
+  color: var(--mt-ink);
   font-weight: 600;
   font-size: 24px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  text-shadow: none;
 }
 
 .file-extension {
-  color: #718096;
+  color: var(--mt-steel);
   font-size: 14px;
   margin-left: 12px;
   font-weight: 500;
   padding: 4px 12px;
-  background: linear-gradient(135deg, #e2e8f0 0%, #f7fafc 100%);
+  background: var(--mt-hairline);
   border-radius: 20px;
-  border: 1px solid rgba(113, 128, 150, 0.2);
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  border: 1px solid rgba(10,10,10, 0.08);
+  font-family: var(--mt-font-mono);
 }
 
 .status-tag {
@@ -607,36 +706,47 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 /* UPLOADING 상태 - 주황색 */
 .status-uploading {
-  background: rgba(251, 146, 60, 0.15);
-  color: #ea580c;
-  border: 1px solid rgba(251, 146, 60, 0.3);
+  background: rgba(195,125,13, 0.15);
+  color: var(--mt-error);
+  border: 1px solid rgba(195,125,13, 0.3);
 }
 
 .status-uploading .status-icon {
-  color: #ea580c;
+  color: var(--mt-error);
   animation: spin 1s linear infinite;
 }
 
 /* INDEXING 상태 - 파란색 */
 .status-indexing {
-  background: rgba(59, 130, 246, 0.15);
-  color: #2563eb;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(0,180,138, 0.15);
+  color: var(--mt-ink);
+  border: 1px solid rgba(0,180,138, 0.3);
 }
 
 .status-indexing .status-icon {
-  color: #2563eb;
+  color: var(--mt-ink);
 }
 
 /* COMPLETE 상태 - 초록색 */
 .status-complete {
-  background: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(0,180,138, 0.15);
+  color: var(--mt-green-deep);
+  border: 1px solid rgba(0,180,138, 0.3);
 }
 
 .status-complete .status-icon {
-  color: #16a34a;
+  color: var(--mt-green-deep);
+}
+
+/* FAILED 상태 - 인덱싱 실패 */
+.status-failed {
+  background: transparent !important;
+  color: var(--mt-error) !important;
+  border-color: var(--mt-error) !important;
+}
+
+.status-failed .status-text {
+  color: var(--mt-error) !important;
 }
 
 @keyframes spin {
@@ -652,7 +762,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+  background: #ffffff;
   position: relative;
 }
 
@@ -662,16 +772,16 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .document-body::-webkit-scrollbar-track {
-  background: rgba(248, 250, 252, 0.8);
+  background: rgba(10,10,10, 0.08);
 }
 
 .document-body::-webkit-scrollbar-thumb {
-  background: rgba(203, 213, 225, 0.8);
+  background: rgba(10,10,10, 0.08);
   border-radius: 4px;
 }
 
 .document-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.8);
+  background: rgba(10,10,10, 0.08);
 }
 
 .content-container {
@@ -679,20 +789,21 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .content-display {
-  color: #303133;
+  color: var(--mt-ink);
   line-height: 1.6;
 }
 
 /* 마크다운 전용 스타일 */
 .markdown-viewer {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-  line-height: 1.7;
-  color: #2d3748;
-  background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+  font-family: var(--mt-font);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--mt-ink);
+  background: #ffffff;
   padding: 32px;
   border-radius: 12px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: none;
+  border: 1px solid var(--mt-hairline);
   max-width: none;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -700,15 +811,15 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 /* 일반 텍스트 파일 스타일 */
 .text-viewer {
-  font-family: 'SFMono-Regular', 'Monaco', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
+  font-family: var(--mt-font-mono);
   line-height: 1.6;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--mt-surface);
   padding: 32px;
   border-radius: 12px;
   white-space: pre-wrap;
-  color: #334155;
+  color: var(--mt-ink);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(203, 213, 225, 0.8);
+  border: 1px solid rgba(10,10,10, 0.08);
   font-size: 14px;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -716,8 +827,10 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 /* GitHub 스타일의 마크다운 스타일링 */
 .markdown-viewer :deep(h1) {
-  color: #24292e;
-  border-bottom: 1px solid #e1e4e8;
+  color: var(--mt-ink);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  border-bottom: 1px solid var(--mt-hairline);
   padding-bottom: 10px;
   margin: 32px 0 16px 0;
   font-size: 32px;
@@ -725,8 +838,10 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .markdown-viewer :deep(h2) {
-  color: #24292e;
-  border-bottom: 1px solid #e1e4e8;
+  color: var(--mt-ink);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  border-bottom: 1px solid var(--mt-hairline);
   padding-bottom: 8px;
   margin: 24px 0 12px 0;
   font-size: 24px;
@@ -734,28 +849,30 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .markdown-viewer :deep(h3) {
-  color: #24292e;
+  color: var(--mt-ink);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
   margin: 20px 0 10px 0;
   font-size: 20px;
   font-weight: 600;
 }
 
 .markdown-viewer :deep(h4) {
-  color: #24292e;
+  color: var(--mt-ink);
   margin: 16px 0 8px 0;
   font-size: 16px;
   font-weight: 600;
 }
 
 .markdown-viewer :deep(h5) {
-  color: #24292e;
+  color: var(--mt-ink);
   margin: 12px 0 6px 0;
   font-size: 14px;
   font-weight: 600;
 }
 
 .markdown-viewer :deep(h6) {
-  color: #24292e;
+  color: var(--mt-ink);
   margin: 10px 0 5px 0;
   font-size: 12px;
   font-weight: 600;
@@ -763,7 +880,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 .markdown-viewer :deep(p) {
   margin: 16px 0;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .markdown-viewer :deep(ul),
@@ -778,45 +895,47 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .markdown-viewer :deep(blockquote) {
-  border-left: 4px solid #dfe2e5;
+  border-left: 4px solid var(--mt-hairline);
   padding: 0 16px;
-  color: #6a737d;
+  color: var(--mt-steel);
   margin: 16px 0;
-  background: #f6f8fa;
+  background: var(--mt-surface);
   border-radius: 0 6px 6px 0;
 }
 
 .markdown-viewer :deep(code) {
-  background: #f6f8fa;
+  background: var(--mt-surface);
   border-radius: 6px;
-  font-size: 85%;
+  font-size: 13px;
   margin: 0 2px;
   padding: 2px 6px;
-  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
-  color: #e83e8c;
+  border: 1px solid var(--mt-hairline);
+  font-family: var(--mt-font-mono);
+  color: var(--mt-ink);
 }
 
 .markdown-viewer :deep(pre) {
-  background: #f6f8fa;
+  background: var(--mt-surface-code);
   border-radius: 6px;
   font-size: 85%;
   line-height: 1.45;
   overflow: auto;
   padding: 16px;
   margin: 16px 0;
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--mt-surface-code);
 }
 
 .markdown-viewer :deep(pre code) {
   background: transparent;
   border: 0;
+  font-size: 13px;
   display: inline;
   line-height: inherit;
   margin: 0;
   overflow: visible;
   padding: 0;
   word-wrap: normal;
-  color: #24292e;
+  color: #f7f7f7;
 }
 
 .markdown-viewer :deep(table) {
@@ -824,34 +943,36 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   border-spacing: 0;
   margin: 16px 0;
   width: 100%;
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--mt-hairline);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .markdown-viewer :deep(th),
 .markdown-viewer :deep(td) {
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--mt-hairline);
   padding: 8px 12px;
   text-align: left;
 }
 
 .markdown-viewer :deep(th) {
-  background: #f6f8fa;
+  background: var(--mt-surface);
   font-weight: 600;
 }
 
 .markdown-viewer :deep(tr:nth-child(even)) {
-  background: #f6f8fa;
+  background: var(--mt-surface);
 }
 
 .markdown-viewer :deep(a) {
-  color: #0366d6;
-  text-decoration: none;
+  color: var(--mt-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--mt-green);
+  text-underline-offset: 3px;
 }
 
 .markdown-viewer :deep(a:hover) {
-  text-decoration: underline;
+  text-decoration-color: var(--mt-green-deep);
 }
 
 .markdown-viewer :deep(strong) {
@@ -866,7 +987,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   height: 4px;
   padding: 0;
   margin: 24px 0;
-  background-color: #e1e4e8;
+  background-color: var(--mt-hairline);
   border: 0;
   border-radius: 2px;
 }
@@ -874,11 +995,11 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 .error-message {
   padding: 40px 20px;
   text-align: center;
-  background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+  background: #fbeeee;
   border-radius: 12px;
   margin: 20px;
-  box-shadow: 0 4px 16px rgba(254, 178, 178, 0.3);
-  border: 1px solid rgba(245, 101, 101, 0.2);
+  box-shadow: 0 4px 16px rgba(212,86,86, 0.3);
+  border: 1px solid rgba(212,86,86, 0.2);
 }
 
 .loading-placeholder {
@@ -888,8 +1009,8 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 .document-info {
   margin-top: 40px;
   padding: 24px 0 0 0;
-  border-top: 1px solid rgba(228, 231, 237, 0.6);
-  background: rgba(248, 250, 252, 0.3);
+  border-top: 1px solid rgba(10,10,10, 0.08);
+  background: rgba(10,10,10, 0.08);
   border-radius: 8px;
 }
 
@@ -902,17 +1023,17 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 .info-label {
   font-weight: 600;
-  color: #4a5568;
+  color: var(--mt-slate);
 }
 
 :deep(.el-button--primary) {
-  background-color: #000080;
-  border-color: #000080;
+  background-color: var(--mt-green-deep);
+  border-color: var(--mt-green-deep);
 }
 
 :deep(.el-button--primary:hover) {
-  background-color: #000066;
-  border-color: #000066;
+  background-color: var(--mt-green-deep);
+  border-color: var(--mt-green-deep);
 }
 
 /* 상태 태그 스타일 - DocumentViewer용 */
@@ -930,46 +1051,46 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .status-uploading {
-  background-color: rgba(245, 158, 11, 0.1) !important;
-  border-color: rgba(245, 158, 11, 0.3) !important;
+  background-color: rgba(195,125,13, 0.1) !important;
+  border-color: rgba(195,125,13, 0.3) !important;
 }
 
 .status-uploading .status-icon {
-  color: #92400e !important;
+  color: var(--mt-warn) !important;
   animation: spin 2s linear infinite;
 }
 
 .status-uploading .status-text {
-  color: #92400e !important;
+  color: var(--mt-warn) !important;
 }
 
 .status-indexing {
-  background-color: rgba(59, 130, 246, 0.1) !important;
-  border-color: rgba(59, 130, 246, 0.3) !important;
+  background-color: rgba(0,180,138, 0.1) !important;
+  border-color: rgba(0,180,138, 0.3) !important;
 }
 
 .status-indexing .status-icon {
-  color: #1e40af !important;
+  color: var(--mt-ink) !important;
 }
 
 .status-indexing .status-text {
-  color: #1e40af !important;
+  color: var(--mt-ink) !important;
 }
 
 .status-completed,
 .status-complete {
-  background-color: rgba(16, 185, 129, 0.1) !important;
-  border-color: rgba(16, 185, 129, 0.3) !important;
+  background-color: rgba(0,180,138, 0.1) !important;
+  border-color: rgba(0,180,138, 0.3) !important;
 }
 
 .status-completed .status-icon,
 .status-complete .status-icon {
-  color: #065f46 !important;
+  color: var(--mt-green-deep) !important;
 }
 
 .status-completed .status-text,
 .status-complete .status-text {
-  color: #065f46 !important;
+  color: var(--mt-green-deep) !important;
 }
 
 /* 더 구체적인 선택자로 완료 상태 강제 적용 */
@@ -977,15 +1098,15 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 :deep(.status-complete),
 :deep(.document-header .status-completed),
 :deep(.document-header .status-complete) {
-  background-color: rgba(16, 185, 129, 0.1) !important;
-  border-color: rgba(16, 185, 129, 0.3) !important;
+  background-color: rgba(0,180,138, 0.1) !important;
+  border-color: rgba(0,180,138, 0.3) !important;
 }
 
 :deep(.status-completed .status-icon),
 :deep(.status-complete .status-icon),
 :deep(.status-completed .status-text),
 :deep(.status-complete .status-text) {
-  color: #065f46 !important;
+  color: var(--mt-green-deep) !important;
 }
 
 /* Element Plus 컴포넌트 내부까지 침투 */
@@ -998,7 +1119,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 .document-header .status-tag.status-complete .status-icon,
 .document-header .status-tag.status-completed .status-text,
 .document-header .status-tag.status-complete .status-text {
-  color: #065f46 !important;
+  color: var(--mt-green-deep) !important;
 }
 
 @keyframes spin {
@@ -1009,14 +1130,14 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 /* 최종 보험 - 모든 가능한 완료 상태 선택자 */
 * .status-complete,
 * .status-completed {
-  color: #065f46 !important;
+  color: var(--mt-green-deep) !important;
 }
 
 * .status-complete .status-icon,
 * .status-completed .status-icon,
 * .status-complete .status-text,
 * .status-completed .status-text {
-  color: #065f46 !important;
+  color: var(--mt-green-deep) !important;
 }
 
 /* Vue 컴포넌트 스코프 무시하고 전역 적용 */
@@ -1024,7 +1145,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 .status-complete >>> .status-text,
 .status-completed >>> .status-icon,
 .status-completed >>> .status-text {
-  color: #065f46 !important;
+  color: var(--mt-green-deep) !important;
 }
 
 /* 로딩 스피너 스타일 */
@@ -1043,12 +1164,12 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .loading-spinner {
-  color: #000080;
+  color: var(--mt-green-deep);
   animation: spin 1s linear infinite;
 }
 
 .loading-text {
-  color: #666;
+  color: var(--mt-steel);
   font-size: 14px;
   margin: 0;
 }
@@ -1072,6 +1193,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   height: 100%;
   object-fit: cover;
   z-index: -2;
+  display: none;
 }
 
 .video-fallback {
@@ -1080,8 +1202,9 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1f2937 0%, #374151 50%, #111827 100%);
+  background: var(--mt-canvas);
   z-index: -1;
+  display: none;
 }
 
 /* 비디오 오버레이 */
@@ -1091,15 +1214,9 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    135deg,
-    rgba(17, 24, 39, 0.8) 0%,
-    rgba(31, 41, 55, 0.7) 25%,
-    rgba(55, 65, 81, 0.6) 50%,
-    rgba(75, 85, 99, 0.7) 75%,
-    rgba(17, 24, 39, 0.8) 100%
-  );
+  background: transparent;
   z-index: -1;
+  display: none;
 }
 
 /* 메인 콘텐츠 */
@@ -1126,9 +1243,9 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 }
 
 .hero-text {
-  color: white;
+  color: var(--mt-ink);
   max-width: 700px;
-  font-family: 'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--mt-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -1139,9 +1256,9 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   font-weight: 200;
   line-height: 1.1;
   margin-bottom: 2rem;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  text-shadow: none;
   letter-spacing: -0.02em;
-  font-family: 'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--mt-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -1154,13 +1271,14 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 .title-line:first-child,
 .title-line:last-child {
-  font-weight: 300;
-  opacity: 0.95;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  opacity: 1;
 }
 
 .highlight {
-  color: white;
-  font-weight: 300;
+  color: var(--mt-ink);
+  font-weight: 600;
   position: relative;
 }
 
@@ -1171,9 +1289,9 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(45deg, #f59e0b, #10b981, #ef4444);
+  background: var(--mt-green);
   border-radius: 1px;
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .subtitle {
@@ -1181,10 +1299,11 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   font-weight: 400;
   line-height: 1.8;
   margin-bottom: 3rem;
-  opacity: 0.9;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  color: var(--mt-steel);
+  opacity: 1;
+  text-shadow: none;
   letter-spacing: 0.005em;
-  font-family: 'SF Pro Text', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--mt-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -1210,23 +1329,22 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   width: 100%;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--mt-canvas);
+  border: 1px solid var(--mt-hairline);
   border-radius: 12px;
   padding: 0;
   transition: all 0.3s ease;
 }
 
 .search-bar:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  background: var(--mt-canvas);
+  border-color: var(--mt-stone);
+  box-shadow: var(--mt-shadow-sm);
 }
 
 .search-icon {
   padding: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--mt-stone);
   font-size: 18px;
   flex-shrink: 0;
 }
@@ -1236,18 +1354,18 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
   background: transparent;
   border: none;
   outline: none;
-  color: white;
+  color: var(--mt-ink);
   font-size: 16px;
   font-weight: 400;
   padding: 16px 0;
-  font-family: 'SF Pro Text', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--mt-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--mt-muted);
 }
 
 .search-shortcut {
@@ -1257,24 +1375,24 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 .search-shortcut span {
   display: inline-block;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--mt-surface);
+  color: var(--mt-steel);
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--mt-font-mono);
+  border: 1px solid var(--mt-hairline);
 }
 
 .search-hint {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--mt-steel);
   text-align: center;
   margin: 0;
   font-weight: 400;
   letter-spacing: 0.005em;
-  font-family: 'SF Pro Text', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--mt-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -1369,4 +1487,5 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
     bottom: -6px;
   }
 }
+.live-notice { margin: 0 0 12px; }
 </style>

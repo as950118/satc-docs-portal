@@ -12,5 +12,13 @@ public interface DocumentSyncService {
      * @throws IllegalArgumentException 요청 값이 잘못된 경우
      * @throws DocumentSyncStorageException 스토리지(MinIO) 저장 실패
      */
-    DocumentSyncResponse sync(DocumentSyncRequest request);
+    default DocumentSyncResponse sync(DocumentSyncRequest request) {
+        return sync(request, null);
+    }
+
+    /**
+     * actor(로그인한 사용자 id·username)가 있으면 등록자/수정자와 수정 이력(DocumentEvent)을 남긴다.
+     * 본문이 같아 바뀌는 것이 없으면(unchanged) 이력을 남기지 않는다.
+     */
+    DocumentSyncResponse sync(DocumentSyncRequest request, UploadActor actor);
 }
