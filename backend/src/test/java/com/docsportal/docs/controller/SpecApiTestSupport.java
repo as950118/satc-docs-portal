@@ -23,6 +23,8 @@ import com.docsportal.docs.persistence.SpecEvent;
 import com.docsportal.docs.repository.SpecDocumentRepository;
 import com.docsportal.docs.repository.SpecEventRepository;
 import com.docsportal.docs.config.AuthConfig;
+import com.docsportal.docs.live.LiveEventPublisher;
+import com.docsportal.docs.live.SseHub;
 import com.docsportal.docs.service.AccountSeeder;
 import com.docsportal.docs.service.AuthService;
 import com.docsportal.docs.service.AuthServiceImpl;
@@ -40,7 +42,7 @@ import com.jayway.jsonpath.JsonPath;
     "docs.auth.dev-accounts=true"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({SpecService.class, AuthServiceImpl.class, AuthConfig.class, AccountSeeder.class})
+@Import({SpecService.class, AuthServiceImpl.class, AuthConfig.class, AccountSeeder.class, SseHub.class, LiveEventPublisher.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 abstract class SpecApiTestSupport {
 

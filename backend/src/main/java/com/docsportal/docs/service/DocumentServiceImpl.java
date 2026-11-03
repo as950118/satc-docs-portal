@@ -24,11 +24,15 @@ import com.docsportal.docs.format.response.DocumentResponse;
 import com.docsportal.docs.format.response.DocumentStatisticsResponse;
 import com.docsportal.docs.format.response.DocumentTreeResponse;
 import com.docsportal.docs.format.response.FolderListResponse;
+import com.docsportal.docs.live.LiveEventPublisher;
+import com.docsportal.docs.live.LiveEventType;
+import com.docsportal.docs.live.OriginIdHolder;
 import com.docsportal.docs.persistence.DocumentEntity;
 import com.docsportal.docs.persistence.DocumentStatus;
 import com.docsportal.docs.repository.DocsRepository;
 
 import io.minio.BucketExistsArgs;
+import io.minio.GetObjectArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -43,14 +47,34 @@ public class DocumentServiceImpl implements DocumentService {
     private final MinioClient minioClient;
     private final DocsRepository docsRepository;
     private final ExternalService externalService;
+    private final LiveEventPublisher liveEvents;
 
     @Value("${minio.bucket-name}")
     private String bucketName;
 
-    public DocumentServiceImpl(MinioClient minioClient, DocsRepository docsRepository, ExternalService externalService) {
+    public DocumentServiceImpl(MinioClient minioClient, DocsRepository docsRepository, ExternalService externalService,
+                               LiveEventPublisher liveEvents) {
         this.minioClient = minioClient;
         this.docsRepository = docsRepository;
         this.externalService = externalService;
+        this.liveEvents = liveEvents;
+    }
+
+    @Override
+    public String getDocumentContent(String documentId) {
+        DocumentEntity doc = docsRepository.findById(documentId).orElse(null);
+        if (doc == null || Boolean.TRUE.equals(doc.getDeleted()) || Boolean.TRUE.equals(doc.getIsFolder())
+                || doc.getFilePath() == null) {
+            return null;
+        }
+        try (InputStream in = minioClient.getObject(
+                GetObjectArgs.builder().bucket(doc.getBucket() != null ? doc.getBucket() : bucketName)
+                    .object(doc.getFilePath()).build())) {
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            logger.error("[CONTENT] Failed to read {} from MinIO: {}", documentId, e.getMessage());
+            return null;
+        }
     }
 
     @Override
@@ -94,13 +118,18 @@ public class DocumentServiceImpl implements DocumentService {
     }
     
     public DocumentResponse uploadDocument(byte[] fileBytes, String originalFilename, String contentType, String parentId) {
+        return uploadDocument(fileBytes, originalFilename, contentType, parentId, null);
+    }
+
+    public DocumentResponse uploadDocument(byte[] fileBytes, String originalFilename, String contentType, String parentId,
+                                           String originId) {
         // 새로운 UUID 생성하여 uploadDocumentWithId 호출
         String documentId = UUID.randomUUID().toString();
         String title = removeFileExtension(originalFilename);
         String extension = getFileExtension(originalFilename);
         String normalizedTitle = Normalizer.normalize(title, Normalizer.Form.NFC);
 
-        return uploadDocumentWithId(fileBytes, contentType, parentId, documentId, normalizedTitle, extension);
+        return uploadDocumentWithId(fileBytes, contentType, parentId, documentId, normalizedTitle, extension, originId);
     }
 
     private String getFileExtension(String filename) {
@@ -125,7 +154,7 @@ public class DocumentServiceImpl implements DocumentService {
     
     @Override
     @Async("fileUploadExecutor")
-    public void uploadDocumentAsync(MultipartFile file, String parentId) {
+    public void uploadDocumentAsync(MultipartFile file, String parentId, String originId) {
         try {
             // 빈 문자열을 null로 변환
             String normalizedParentId = (parentId != null && parentId.trim().isEmpty()) ? null : parentId;
@@ -136,7 +165,7 @@ public class DocumentServiceImpl implements DocumentService {
             byte[] fileBytes = file.getBytes(); // 파일 데이터를 메모리에 복사
             
             // 실제 업로드 처리
-            uploadDocument(fileBytes, originalFilename, contentType, normalizedParentId);
+            uploadDocument(fileBytes, originalFilename, contentType, normalizedParentId, originId);
             
         } catch (Exception e) {
             logger.error("[ASYNC UPLOAD ERROR] 비동기 파일 업로드 실패: {}", e.getMessage(), e);
@@ -167,6 +196,8 @@ public class DocumentServiceImpl implements DocumentService {
             
             docsRepository.save(folderEntity);
             logger.info("[CREATE FOLDER] Folder created: {} ({})", documentId, title);
+            liveEvents.publish(LiveEventType.DOCUMENT_CREATED, documentId, normalizedTitle, normalizedParentId,
+                DocumentStatus.COMPLETE.name(), null);
             
             // 3. 동기 응답 반환 (폴더는 extension이 null, 상태는 COMPLETE)
             return new DocumentCreateResponse(documentId, title, true, null, DocumentStatus.COMPLETE);
@@ -183,6 +214,7 @@ public class DocumentServiceImpl implements DocumentService {
         
         // 빈 문자열을 null로 변환
         String normalizedParentId = (parentId != null && parentId.trim().isEmpty()) ? null : parentId;
+        String originId = OriginIdHolder.current();
         
         try {
             for (MultipartFile file : files) {
@@ -201,7 +233,7 @@ public class DocumentServiceImpl implements DocumentService {
                 responses.add(new DocumentCreateResponse(documentId, normalizedTitle, false, extension, DocumentStatus.UPLOADING));
                 
                 // 3. 비동기적으로 실제 파일 처리 (기존 로직 재사용)
-                createDocumentAsync(file, normalizedParentId, documentId, normalizedTitle);
+                createDocumentAsync(file, normalizedParentId, documentId, normalizedTitle, originId);
             }
             
             logger.info("[CREATE DOCUMENTS] Created {} document entries", responses.size());
@@ -214,7 +246,8 @@ public class DocumentServiceImpl implements DocumentService {
     }
     
     @Async("fileUploadExecutor")
-    private void createDocumentAsync(MultipartFile file, String parentId, String documentId, String title) {
+    private void createDocumentAsync(MultipartFile file, String parentId, String documentId, String title,
+                                     String originId) {
         try {
             // 파일 정보를 미리 추출
             String originalFilename = file.getOriginalFilename();
@@ -223,14 +256,15 @@ public class DocumentServiceImpl implements DocumentService {
             byte[] fileBytes = file.getBytes();
             
             // 실제 업로드 처리
-            uploadDocumentWithId(fileBytes, contentType, parentId, documentId, title, extension);
+            uploadDocumentWithId(fileBytes, contentType, parentId, documentId, title, extension, originId);
             
         } catch (Exception e) {
             logger.error("[ASYNC CREATE ERROR] 비동기 문서 생성 실패: {}", e.getMessage(), e);
         }
     }
     
-    private DocumentResponse uploadDocumentWithId(byte[] fileBytes, String contentType, String parentId, String documentId, String title, String extension) {
+    private DocumentResponse uploadDocumentWithId(byte[] fileBytes, String contentType, String parentId, String documentId, String title, String extension,
+                                                   String originId) {
         try {
             
             // 버킷이 존재하지 않으면 생성
@@ -268,6 +302,8 @@ public class DocumentServiceImpl implements DocumentService {
                 savedEntity.updateStatus(DocumentStatus.INDEXING);
                 docsRepository.save(savedEntity);
                 logger.info("[STATUS] Document status updated to INDEXING: {}", documentId);
+                liveEvents.publish(LiveEventType.DOCUMENT_CREATED, documentId, title, parentId,
+                    DocumentStatus.INDEXING.name(), null, originId);
                 
                 // 외부 API 호출
                 externalService.notifyDocumentUploaded(bucketName, filePath);
@@ -440,7 +476,12 @@ public class DocumentServiceImpl implements DocumentService {
             collectDeletedFileNames(documentId, deletedFileNames);
             
             // 3. 재귀적으로 하위 문서들 먼저 삭제
-            deleteDocumentRecursively(documentId);
+            List<DocumentEntity> deleted = new ArrayList<>();
+            deleteDocumentRecursively(documentId, deleted);
+            for (DocumentEntity gone : deleted) {
+                liveEvents.publish(LiveEventType.DOCUMENT_DELETED, gone.getId(), gone.getTitle(), gone.getParentId(),
+                    gone.getStatus() == null ? null : gone.getStatus().name(), null);
+            }
             
             // 4. 외부 API에 삭제 알림 (비동기)
             if (!deletedFileNames.isEmpty()) {
@@ -489,7 +530,7 @@ public class DocumentServiceImpl implements DocumentService {
         }
     }
     
-    private void deleteDocumentRecursively(String documentId) {
+    private void deleteDocumentRecursively(String documentId, List<DocumentEntity> deleted) {
         try {
             // 1. 현재 문서 조회
             DocumentEntity document = docsRepository.findById(documentId)
@@ -503,12 +544,13 @@ public class DocumentServiceImpl implements DocumentService {
             // 2. 하위 문서들 먼저 재귀적으로 삭제
             List<DocumentEntity> childDocuments = docsRepository.findAllByParentId(documentId);
             for (DocumentEntity child : childDocuments) {
-                deleteDocumentRecursively(child.getId());
+                deleteDocumentRecursively(child.getId(), deleted);
             }
             
             // 3. 현재 문서 soft delete
             document.delete();
             docsRepository.save(document);
+            deleted.add(document);
             logger.info("[DELETE] Document soft deleted in DB: {} ({})", documentId, document.getTitle());
             
             // 4. MinIO에서 파일 삭제
@@ -569,6 +611,9 @@ public class DocumentServiceImpl implements DocumentService {
                 document.updateParentId(targetParentId);
                 docsRepository.save(document);
                 
+                liveEvents.publish(LiveEventType.DOCUMENT_MOVED, document.getId(), document.getTitle(), targetParentId,
+                    document.getStatus() == null ? null : document.getStatus().name(), null);
+
                 movedCount++;
                 logger.info("[MOVE] Document moved: {} from [{}] to [{}]", 
                     documentId, 
@@ -679,6 +724,8 @@ public class DocumentServiceImpl implements DocumentService {
             DocumentStatus previousStatus = document.getStatus();
             document.updateStatus(status);
             docsRepository.save(document);
+            liveEvents.publish(LiveEventType.DOCUMENT_STATUS, document.getId(), document.getTitle(), document.getParentId(),
+                status.name(), null);
             
             logger.info("[STATUS UPDATE] Document {} status updated from {} to {}", 
                 documentId, previousStatus, status);

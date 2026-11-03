@@ -25,9 +25,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.docsportal.docs.format.request.DocumentSyncRequest;
 import com.docsportal.docs.format.response.DocumentSyncResponse;
+import com.docsportal.docs.live.LiveEventPublisher;
+import com.docsportal.docs.live.LiveEventType;
 import com.docsportal.docs.persistence.DocumentEntity;
 import com.docsportal.docs.persistence.DocumentStatus;
+import com.docsportal.docs.persistence.DocumentEvent;
+import com.docsportal.docs.persistence.DocumentEventAction;
 import com.docsportal.docs.repository.DocsRepository;
+import com.docsportal.docs.repository.DocumentEventRepository;
 
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -41,6 +46,8 @@ class DocumentSyncServiceImplTest {
     private DocsRepository repository;
     private ExternalService externalService;
     private DocumentService documentService;
+    private LiveEventPublisher liveEvents;
+    private DocumentEventRepository eventRepository;
     private DocumentSyncServiceImpl service;
 
     @BeforeEach
@@ -49,7 +56,9 @@ class DocumentSyncServiceImplTest {
         repository = mock(DocsRepository.class);
         externalService = mock(ExternalService.class);
         documentService = mock(DocumentService.class);
-        service = new DocumentSyncServiceImpl(minioClient, repository, externalService, documentService,
+        liveEvents = mock(LiveEventPublisher.class);
+        eventRepository = mock(DocumentEventRepository.class);
+        service = new DocumentSyncServiceImpl(minioClient, repository, externalService, documentService, liveEvents, eventRepository,
             Clock.fixed(NOW, ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "bucketName", "docs");
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -98,6 +107,15 @@ class DocumentSyncServiceImplTest {
     }
 
     @Test
+    void unchangedDoesNotPublish() throws Exception {
+        when(repository.findBySourceKey(KEY)).thenReturn(Optional.of(existing("paths: {}\n", false)));
+
+        service.sync(request("paths: {}\n", "c2"));
+
+        org.mockito.Mockito.verifyNoInteractions(liveEvents);
+    }
+
+    @Test
     void storageFailureOnCreateLeavesNoEntity() throws Exception {
         when(repository.findBySourceKey(KEY)).thenReturn(Optional.empty());
         when(minioClient.putObject(any(PutObjectArgs.class))).thenThrow(new RuntimeException("minio down"));
@@ -132,6 +150,8 @@ class DocumentSyncServiceImplTest {
         DocumentSyncResponse response = service.sync(request("paths:\n  /a: {}\n", "c2"));
 
         assertThat(response.getResult()).isEqualTo("updated");
+        verify(liveEvents).publish(LiveEventType.DOCUMENT_UPDATED, entity.getId(), "r-backend-java-openapi", null,
+            "INDEXING", null);
         assertThat(response.getDocumentId()).isEqualTo(entity.getId());
         assertThat(entity.getFilePath()).isEqualTo(originalPath);
         assertThat(entity.getStatus()).isEqualTo(DocumentStatus.INDEXING);
@@ -194,5 +214,63 @@ class DocumentSyncServiceImplTest {
         assertThatThrownBy(() -> service.sync(new DocumentSyncRequest(KEY, "o/r", "p", "c", hash, null, "noext", null, bytes)))
             .isInstanceOf(IllegalArgumentException.class);
         verify(repository, never()).findBySourceKey(eq(KEY));
+    }
+
+    @Test
+    void recordsCreatorAndCreatedEventWhenActorGiven() throws Exception {
+        when(repository.findBySourceKey(KEY)).thenReturn(Optional.empty());
+
+        service.sync(request("a\n", "c1"), new UploadActor(7L, "alice"));
+
+        ArgumentCaptor<DocumentEntity> saved = ArgumentCaptor.forClass(DocumentEntity.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getCreatedBy()).isEqualTo("alice");
+        assertThat(saved.getValue().getUpdatedBy()).isEqualTo("alice");
+        assertThat(saved.getValue().getCreatedById()).isEqualTo(7L);
+        ArgumentCaptor<DocumentEvent> event = ArgumentCaptor.forClass(DocumentEvent.class);
+        verify(eventRepository).save(event.capture());
+        assertThat(event.getValue().getAction()).isEqualTo(DocumentEventAction.CREATED);
+        assertThat(event.getValue().getActor()).isEqualTo("alice");
+        assertThat(event.getValue().getUserId()).isEqualTo(7L);
+        assertThat(event.getValue().getAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void updateKeepsCreatorChangesUpdaterAndLogsEvent() throws Exception {
+        DocumentEntity entity = existing("old\n", false);
+        entity.recordActor(7L, "alice", true);
+        when(repository.findBySourceKey(KEY)).thenReturn(Optional.of(entity));
+
+        service.sync(request("new\n", "c2"), new UploadActor(8L, "bob"));
+
+        assertThat(entity.getCreatedBy()).isEqualTo("alice");
+        assertThat(entity.getUpdatedBy()).isEqualTo("bob");
+        assertThat(entity.getCreatedById()).isEqualTo(7L);
+        assertThat(entity.getUpdatedById()).isEqualTo(8L);
+        ArgumentCaptor<DocumentEvent> event = ArgumentCaptor.forClass(DocumentEvent.class);
+        verify(eventRepository).save(event.capture());
+        assertThat(event.getValue().getAction()).isEqualTo(DocumentEventAction.UPDATED);
+        assertThat(event.getValue().getActor()).isEqualTo("bob");
+    }
+
+    @Test
+    void unchangedLogsNothingAndKeepsUpdater() throws Exception {
+        DocumentEntity entity = existing("same\n", false);
+        entity.recordActor(7L, "alice", true);
+        when(repository.findBySourceKey(KEY)).thenReturn(Optional.of(entity));
+
+        service.sync(request("same\n", "c2"), new UploadActor(8L, "bob"));
+
+        assertThat(entity.getUpdatedBy()).isEqualTo("alice");
+        verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void tokenPathWithoutActorLogsNothing() throws Exception {
+        when(repository.findBySourceKey(KEY)).thenReturn(Optional.empty());
+
+        service.sync(request("a\n", "c1"));
+
+        verify(eventRepository, never()).save(any());
     }
 }

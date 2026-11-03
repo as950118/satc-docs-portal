@@ -73,6 +73,10 @@ public class AppUser {
         this.lastLoginAt = at;
     }
 
+    public Long getId() {
+        return id;
+    }
+
     public String getUsername() {
         return username;
     }

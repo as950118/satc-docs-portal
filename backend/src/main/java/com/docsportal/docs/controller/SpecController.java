@@ -7,6 +7,7 @@ import static com.docsportal.docs.common.Path.API_SPECS_APPROVE_IMPLEMENTATION;
 import static com.docsportal.docs.common.Path.API_SPECS_EXPORT_OPENSPEC;
 import static com.docsportal.docs.common.Path.API_SPECS_ID;
 import static com.docsportal.docs.common.Path.API_SPECS_NEW_VERSION;
+import static com.docsportal.docs.common.Path.API_SPECS_PAGE;
 import static com.docsportal.docs.common.Path.API_SPECS_PR_LINKS;
 import static com.docsportal.docs.common.Path.API_SPECS_REQUEST_CHANGES;
 import static com.docsportal.docs.common.Path.API_SPECS_REQUEST_IMPL_CHANGES;
@@ -47,6 +48,7 @@ import com.docsportal.docs.format.request.SpecTechDocRequest;
 import com.docsportal.docs.format.request.SpecWriteRequest;
 import com.docsportal.docs.format.response.SpecDetailResponse;
 import com.docsportal.docs.format.response.SpecExportResponse;
+import com.docsportal.docs.format.response.SpecPageResponse;
 import com.docsportal.docs.format.response.SpecSummaryResponse;
 import com.docsportal.docs.format.response.SpecTemplateResponse;
 import com.docsportal.docs.format.response.UserInfoResponse;
@@ -112,6 +114,21 @@ public class SpecController {
         authenticate(authorization);
         return ok(specService.list(parseEnum(SpecKind.class, kind), parseEnum(SpecStatus.class, status),
             prdId == null || prdId.isBlank() ? null : prdId, allVersions));
+    }
+
+    @GetMapping(API_SPECS_PAGE)
+    public ResponseEntity<RestResponse<SpecPageResponse>> listPage(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "kind", required = false) String kind,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "prdId", required = false) String prdId,
+            @RequestParam(value = "allVersions", defaultValue = "false") boolean allVersions,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        authenticate(authorization);
+        return ok(specService.listPage(parseEnum(SpecKind.class, kind), parseEnum(SpecStatus.class, status),
+            prdId == null || prdId.isBlank() ? null : prdId, allVersions, q, page, size));
     }
 
     @GetMapping(API_SPECS_ID)

@@ -2,6 +2,7 @@ import axios from 'axios'
 
 import { apiBaseUrl } from '@/config'
 import { authUtils } from './auth'
+import { withClientId } from './clientId'
 
 const specApi = axios.create({
   baseURL: `${apiBaseUrl}/api/v1/specs`,
@@ -14,7 +15,7 @@ specApi.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
-  return config
+  return withClientId(config)
 })
 
 // 상태를 바꾸는 요청이 성공하면 스펙 목록을 들고 있는 문서 트리가 다시 읽는다.
@@ -61,6 +62,10 @@ export const specApiMethods = {
   list: ({ kind = 'PRD', status, prdId, allVersions } = {}) =>
     call(specApi.get('', {
       params: { kind: kind || undefined, status: status || undefined, prdId: prdId || undefined, allVersions: allVersions || undefined },
+    })),
+  listPage: ({ kind = 'PRD', status, allVersions, q, page = 0, size = 20 } = {}) =>
+    call(specApi.get('/page', {
+      params: { kind: kind || undefined, status: status || undefined, allVersions: allVersions || undefined, q: q || undefined, page, size },
     })),
   listAll: () => call(specApi.get('')),
   get: (id) => call(specApi.get(`/${id}`)),
@@ -119,6 +124,9 @@ export const ACTION_LABEL = {
 }
 
 export const actionLabel = (action) => ACTION_LABEL[action] || action
+
+// 상태별 색상 구분용 CSS 클래스 (styles/mintlify-theme.css 의 .st-*)
+export const statusClass = (status) => `st-${String(status).toLowerCase().replace(/_/g, '-')}`
 
 export const statusLabel = (status) => SPEC_STATUS[status]?.label || status
 

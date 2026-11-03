@@ -1,7 +1,7 @@
 <template>
   <el-container style="height: 100%">
     <!-- 사이드바 (문서 트리) -->
-    <el-aside width="480px" style="background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%); padding: 0; border-right: 1px solid rgba(0, 0, 128, 0.1); box-shadow: 4px 0 20px rgba(0, 0, 128, 0.08); position: relative; overflow: hidden;">
+    <el-aside width="480px" style="background: var(--mt-canvas); padding: 0; border-right: 1px solid var(--mt-hairline); box-shadow: none; position: relative; overflow: hidden;">
       <DocumentTree
         @document-select="handleDocumentSelect"
         @document-add="handleDocumentAdd"
@@ -29,8 +29,9 @@
 import DocumentTree from '@/components/DocumentTree.vue'
 import DocumentViewer from '@/components/DocumentViewer.vue'
 import { ElMessage } from 'element-plus'
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, watch } from 'vue'
+import { useLiveEvents } from '@/composables/useLiveEvents'
+import { useRoute, useRouter } from 'vue-router'
 
 export default {
   name: 'Home',
@@ -40,6 +41,7 @@ export default {
   },
   setup() {
     const router = useRouter()
+    const route = useRoute()
     const selectedDocument = ref(null)
     const treeData = ref([])
 
@@ -47,6 +49,42 @@ export default {
       selectedDocument.value = document
       router.push('/')
     }
+
+    // 검색 결과에서 연 문서는 history.state 에 담겨 있다. 뒤로/앞으로 가기 시 그에 맞춰 문서 선택을 복원한다.
+    watch(
+      () => route.fullPath,
+      () => {
+        if (route.path !== '/') return
+        const doc = window.history.state?.doc
+        if (route.query.d && doc) {
+          selectedDocument.value = doc
+        } else if (!route.query.d && selectedDocument.value?.fromSearch) {
+          selectedDocument.value = null
+        }
+      },
+      { immediate: true }
+    )
+
+    // 문서 토스트 클릭: 트리에 읽혀 있는 노드면 그 문서를 연다. 아직 읽히지 않은 폴더 안이면 홈으로만 간다.
+    const handleToastOpenDocument = (evt) => {
+      const node = findNodeInTree(treeData.value, evt.id)
+      if (node && !node.isFolder) {
+        handleDocumentSelect(node)
+      } else {
+        router.push('/')
+      }
+    }
+
+    const findNodeInTree = (tree, id) => {
+      for (const node of tree) {
+        if (node.id === id) return node
+        const found = node.children?.length ? findNodeInTree(node.children, id) : null
+        if (found) return found
+      }
+      return null
+    }
+
+    useLiveEvents({ router, openDocument: handleToastOpenDocument })
 
     const handleTreeDataUpdated = (newTreeData) => {
       treeData.value = newTreeData
@@ -148,51 +186,9 @@ export default {
 </script>
 
 <style scoped>
-.main-background-pattern {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  opacity: 0.03;
-  background-image: 
-    radial-gradient(circle at 25% 25%, #000080 2px, transparent 2px),
-    radial-gradient(circle at 75% 75%, #000080 2px, transparent 2px);
-  background-size: 60px 60px;
-  background-position: 0 0, 30px 30px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-:deep(.el-aside) {
-  position: relative;
-}
-
-:deep(.el-aside::before) {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 1px;
-  height: 100%;
-  background: linear-gradient(180deg, 
-    transparent 0%, 
-    rgba(0, 0, 128, 0.1) 25%, 
-    rgba(0, 0, 128, 0.2) 50%, 
-    rgba(0, 0, 128, 0.1) 75%, 
-    transparent 100%
-  );
-}
-
-:deep(.el-main) {
-  position: relative;
-  z-index: 1;
-}
-
-:deep(.el-container) {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  border-radius: 0;
-  overflow: hidden;
-}
+.main-background-pattern { display: none; }
+:deep(.el-aside) { position: relative; background: var(--mt-canvas); border-right: 1px solid var(--mt-hairline); }
+:deep(.el-main) { position: relative; z-index: 1; }
+:deep(.el-container) { background: var(--mt-canvas); border-radius: 0; overflow: hidden; }
 </style>
 

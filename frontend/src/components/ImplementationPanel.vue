@@ -11,7 +11,7 @@
     </div>
 
     <template v-if="inProgress || submitted || done">
-      <el-tag v-if="done" type="success" effect="dark" size="large" data-test="implemented-badge">구현 완료</el-tag>
+      <el-tag v-if="done" type="success" class="st-implemented" effect="dark" size="large" data-test="implemented-badge">구현 완료</el-tag>
 
       <h4>연결된 PR</h4>
       <el-empty v-if="!spec.prLinks.length" description="연결된 PR이 없습니다." :image-size="40" data-test="pr-empty" />
@@ -148,6 +148,6 @@ const requestChanges = async () => {
 .pr-list li { margin-bottom: 6px; }
 .pr-list .meta { margin-left: 12px; }
 .decision { margin-top: 16px; }
-.error { color: #f56c6c; font-size: 13px; margin-top: 4px; }
-.meta { color: #909399; font-size: 13px; }
+.error { color: var(--mt-error); font-size: 13px; margin-top: 4px; }
+.meta { color: var(--mt-stone); font-size: 13px; }
 </style>
