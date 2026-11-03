@@ -62,6 +62,7 @@
 <script setup>
 import { SPECS_CHANGED, SPEC_KIND, SPEC_STATUS, canPlan, prdChangedLabel, specApiMethods, specPath, statusClass } from '@/api/specs'
 import { formatTime } from '@/utils/format'
+import { buildListQuery, clampPage, parseListQuery } from '@/utils/specListQuery'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -75,24 +76,21 @@ const route = useRoute()
 const planner = canPlan()
 const specs = ref([])
 const total = ref(0)
-const kind = ref(SPEC_KIND[route.query.kind] ? route.query.kind : 'PRD')
+const initial = parseListQuery(route.query, { kinds: SPEC_KIND, statuses: SPEC_STATUS })
+const kind = ref(initial.kind)
 const kindMeta = computed(() => SPEC_KIND[kind.value])
-const status = ref('')
+const status = ref(initial.status)
 const allVersions = ref(false)
-const q = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const q = ref(initial.q)
 // UI 는 1부터, API 는 0부터
-const page = ref(Math.max(parseInt(route.query.page, 10) || 1, 1))
+const page = ref(initial.page)
 const loading = ref(false)
 
 let seq = 0
 let timer = null
 
 const syncUrl = () => {
-  const query = {}
-  if (kind.value !== 'PRD') query.kind = kind.value
-  if (q.value.trim()) query.q = q.value.trim()
-  if (page.value > 1) query.page = String(page.value)
-  router.replace({ query })
+  router.replace({ query: buildListQuery({ kind: kind.value, status: status.value, q: q.value, page: page.value }) })
 }
 
 const load = async () => {
@@ -109,6 +107,11 @@ const load = async () => {
       size: PAGE_SIZE,
     })
     if (mine !== seq) return
+    const lastPage = clampPage(page.value, result.total, PAGE_SIZE)
+    if (lastPage !== page.value) {
+      page.value = lastPage
+      return load()
+    }
     specs.value = result.items
     total.value = result.total
   } catch (e) {

@@ -1,23 +1,10 @@
 <template>
   <el-main class="spec-editor" v-loading="loading">
-    <div class="toolbar">
-      <div class="title-line">
-        <el-button link @click="goBack(router, '/specs')">&larr; 목록</el-button>
-        <h2>{{ isNew ? '새 PRD' : '' }}</h2>
-        <template v-if="spec">
-          <el-tag :type="SPEC_STATUS[spec.status]?.tag" :class="statusClass(spec.status)" effect="dark" data-test="status-tag">
-            {{ SPEC_STATUS[spec.status]?.label || spec.status }}
-          </el-tag>
-          <el-tag v-if="approved" type="success" class="st-approved" effect="dark" data-test="approved-badge">승인됨</el-tag>
-          <el-tag effect="plain" data-test="revision">v{{ spec.revision }}</el-tag>
-        </template>
-      </div>
-      <div class="actions">
-        <el-button v-if="editable" type="primary" :loading="saving" @click="save">저장</el-button>
-        <el-button v-if="canApprove" type="success" :loading="saving" @click="approve">승인</el-button>
-        <el-button v-if="canRevise" :loading="saving" data-test="new-version" @click="newVersion">새 버전 작성</el-button>
-      </div>
-    </div>
+    <SpecToolbar :label="isNew ? '새 PRD' : 'PRD'" :spec="spec" :approved="approved" back-to="/specs">
+      <el-button v-if="canRevise" :loading="saving" data-test="new-version" @click="newVersion">새 버전 작성</el-button>
+      <el-button v-if="editable" :type="canApprove ? 'default' : 'primary'" :loading="saving" @click="save">저장</el-button>
+      <el-button v-if="canApprove" type="primary" :loading="saving" @click="approve">승인</el-button>
+    </SpecToolbar>
 
     <el-alert v-if="staleNotice" type="warning" :closable="false" show-icon class="notice" data-test="stale-banner">
       <template #title>
@@ -78,12 +65,12 @@
 </template>
 
 <script setup>
-import { SPEC_STATUS, actionLabel, canPlan, specApiMethods, statusClass, statusLabel } from '@/api/specs'
+import { actionLabel, canPlan, specApiMethods, statusLabel } from '@/api/specs'
+import SpecToolbar from '@/components/SpecToolbar.vue'
 import TechDocsPanel from '@/components/TechDocsPanel.vue'
 import { formatTime } from '@/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MarkdownIt from 'markdown-it'
-import { goBack } from '@/utils/nav'
 import { useSyncScroll } from '@/composables/useSyncScroll'
 import { getClientId } from '@/api/clientId'
 import { LIVE_EVENT } from '@/composables/liveEventsCore'
@@ -227,9 +214,6 @@ watch(() => route.params.id, load, { immediate: true })
 
 <style scoped>
 .spec-editor { padding: 40px; overflow: auto; }
-.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.title-line { display: flex; align-items: center; gap: 12px; }
-.actions { display: flex; gap: 12px; }
 .transition { margin-left: 6px; }
 .notice, .title-input { margin-bottom: 16px; }
 .panes { display: flex; gap: 16px; }

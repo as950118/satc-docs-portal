@@ -1,21 +1,12 @@
 <template>
   <el-main class="spec-editor" v-loading="loading">
-    <div class="toolbar">
-      <div class="title-line">
-        <el-button link @click="goBack(router, `/specs?kind=${kind || 'PRD'}`)">&larr; 목록</el-button>
-        <h2>{{ isNew ? `새 ${kindMeta?.label || '기술문서'}` : kindMeta?.label }}</h2>
-        <el-tag v-if="spec" :type="SPEC_STATUS[spec.status]?.tag" :class="statusClass(spec.status)" effect="dark" data-test="status-tag">
-          {{ SPEC_STATUS[spec.status]?.label || spec.status }}
-        </el-tag>
-        <el-tag v-if="spec?.status === 'APPROVED'" type="success" class="st-approved" effect="dark" data-test="approved-badge">승인됨</el-tag>
-      </div>
-      <div class="actions">
-        <el-button v-if="editable" type="primary" :loading="saving" data-test="save" @click="save">저장</el-button>
-        <el-button v-if="editable && !isNew" type="warning" :loading="saving" data-test="submit" @click="submit">검토 요청</el-button>
-        <el-button v-if="canDecide" type="success" :loading="saving" data-test="approve" @click="approve">승인</el-button>
-        <el-button v-if="canDecide" type="danger" :loading="saving" data-test="request-changes" @click="requestChanges">변경 요청</el-button>
-      </div>
-    </div>
+    <SpecToolbar :label="isNew ? `새 ${kindMeta?.label || '기술문서'}` : (kindMeta?.label || '')" :spec="spec"
+      :approved="spec?.status === 'APPROVED'" :back-to="`/specs?kind=${kind || 'PRD'}`">
+      <el-button v-if="editable" :type="isNew ? 'primary' : 'default'" :loading="saving" data-test="save" @click="save">저장</el-button>
+      <el-button v-if="canDecide" type="danger" plain :loading="saving" data-test="request-changes" @click="requestChanges">변경 요청</el-button>
+      <el-button v-if="editable && !isNew" type="primary" :loading="saving" data-test="submit" @click="submit">검토 요청</el-button>
+      <el-button v-if="canDecide" type="primary" :loading="saving" data-test="approve" @click="approve">승인</el-button>
+    </SpecToolbar>
 
     <el-alert v-if="staleNotice" type="warning" :closable="false" show-icon class="notice" data-test="stale-banner">
       <template #title>
@@ -88,10 +79,10 @@
 <script setup>
 import { AREA_META, SPEC_KIND, SPEC_STATUS, actionLabel, canAuthorTech, canImplement, canReview, specApiMethods, statusClass, statusLabel } from '@/api/specs'
 import ImplementationPanel from '@/components/ImplementationPanel.vue'
+import SpecToolbar from '@/components/SpecToolbar.vue'
 import { formatTime } from '@/utils/format'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
-import { goBack } from '@/utils/nav'
 import { useSyncScroll } from '@/composables/useSyncScroll'
 import { getClientId } from '@/api/clientId'
 import { LIVE_EVENT } from '@/composables/liveEventsCore'
@@ -277,9 +268,6 @@ watch(() => [route.params.id, route.params.prdId, route.query.area], load, { imm
 
 <style scoped>
 .spec-editor { padding: 40px; overflow: auto; }
-.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.title-line { display: flex; align-items: center; gap: 12px; }
-.actions { display: flex; gap: 12px; }
 .transition { margin-left: 6px; }
 .prd-link { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .notice, .title-input { margin-bottom: 16px; }
