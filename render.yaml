@@ -1,0 +1,203 @@
+# Render Blueprint: backend(공개 웹 서비스)와 indexing(비공개 서비스). DB 와 파일은 Supabase, 화면은 Vercel. docs/deploy.md 참고.
+#
+# 플랜은 둘 다 0.5c-512mb(0.5 CPU, 512 MB)다. 근거는 512 MB 한도, 0.5 CPU 컨테이너에서 잰 값이다(docs/deploy.md 2절).
+# - backend 기본 JVM 설정(-XX:MaxRAMPercentage=75, 힙 384 MiB)과 업로드 상한 50MB 에서는 45MB 동시 업로드 3건에 커널이
+#   컨테이너를 죽였다(두 번 재현). 아래 JAVA_TOOL_OPTIONS 와 업로드 상한 10MB 로 9.5MB 동시 업로드 5건씩 3회, 동시 본문
+#   조회 15건 뒤 cgroup 최고 444 MiB 였고 프로세스는 살아 있었다.
+# - indexing 은 45MB 문서 하나에 메모리 초과로 죽었다. 10MB 상한 문서를 작업자 2개로 15건 색인한 최고 412 MiB 였다.
+# 업로드 상한을 50MB 로 되돌리려면 두 서비스 모두 1c-2g 이상으로 올린다(2 GB 에서는 재지 않았다).
+# free 플랜은 쓰지 않는다. 비공개 서비스는 free 가 없고, free 웹 서비스는 15분 유휴 시 잠들며 사설망 요청을 받지 못해
+# indexing 의 상태 갱신 호출이 실패한다.
+services:
+  - type: web
+    name: satc-docs-backend
+    runtime: docker
+    # Supabase 프로젝트가 eu-west-3(파리)라서 가장 가까운 Render 리전
+    region: frankfurt
+    plan: 0.5c-512mb
+    branch: main
+    autoDeployTrigger: commit
+    rootDir: backend
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    healthCheckPath: /hello
+    # SSE 허브와 OAuth 동의 대기·코드가 메모리에 있어서 한 대만 띄운다
+    numInstances: 1
+    envVars:
+      - key: PORT
+        value: "8080"
+      # Session pooler 호스트(예: aws-0-eu-west-3.pooler.supabase.com). indexing 도 이 값을 쓴다
+      - key: SUPABASE_DB_HOST
+        sync: false
+      # Spring 이 ${SUPABASE_DB_HOST} 를 위 환경변수로 채운다. 5432 는 Session pooler, 6543(Transaction pooler)은 쓰지 않는다
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://${SUPABASE_DB_HOST}:5432/postgres?sslmode=require
+      # postgres.<project-ref>
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      # Supabase Session pooler 의 기본 풀은 계정당 15개다. backend 5 + indexing 최대 4
+      - key: SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE
+        value: "5"
+      # public 은 Supabase REST(/rest/v1)로 노출되므로 전용 스키마를 쓴다. indexing 의 SEARCH_PG_SCHEMA 와 같아야 한다
+      - key: DOCS_DB_SCHEMA
+        value: docs_portal
+      - key: SPRING_JPA_SHOW_SQL
+        value: "false"
+      # 명령줄의 -XX:MaxRAMPercentage=75 보다 -Xmx 가 우선한다. 512 MB 에서 비힙이 약 240 MiB 라서 힙을 200 MiB 로 묶는다
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xmx200m -XX:MaxMetaspaceSize=128m -Xss512k
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      - key: DOCS_MAX_UPLOAD_SIZE
+        value: 10MB
+      # https://<project-ref>.storage.supabase.co/storage/v1/s3
+      - key: STORAGE_ENDPOINT
+        sync: false
+      - key: STORAGE_REGION
+        value: eu-west-3
+      - key: STORAGE_BUCKET
+        sync: false
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+      - key: STORAGE_PATH_STYLE
+        value: "true"
+      # Supabase S3 API 는 버킷 생성·정책을 받지 않는다. 버킷은 대시보드에서 비공개로 미리 만든다
+      - key: STORAGE_MANAGE_BUCKET
+        value: "false"
+      - key: STORAGE_PUBLIC_READ
+        value: "false"
+      # Supabase 는 한글·괄호가 든 객체 키를 거부한다
+      - key: STORAGE_ASCII_KEYS
+        value: "true"
+      # Vercel 주소(예: https://satc-docs-portal.vercel.app). 여러 개면 쉼표로 구분
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: DOCS_AUTH_TOKEN_SECRET
+        generateValue: true
+      - key: DOCS_AUTH_TOKEN_TTL
+        value: 12h
+      # 운영에서는 끈다. true 면 admin/admin123 같은 알려진 비밀번호의 계정 9개를 만든다
+      - key: DOCS_AUTH_DEV_ACCOUNTS
+        value: "false"
+      # 첫 관리자. 이미 있는 username 이면 비밀번호를 바꾸지 않는다
+      - key: DOCS_AUTH_ADMIN_USERNAME
+        sync: false
+      - key: DOCS_AUTH_ADMIN_PASSWORD
+        sync: false
+      # Render 가 넣는 이 서비스의 공개 주소(https://<name>.onrender.com). 사용자 도메인을 붙이면 그 주소로 바꾼다
+      - key: DOCS_OAUTH_ISSUER
+        value: ${RENDER_EXTERNAL_URL}
+      # <Vercel 주소>/oauth/consent
+      - key: DOCS_OAUTH_CONSENT_URL
+        sync: false
+      - key: DOCS_OAUTH_TOKEN_TTL
+        value: 168h
+      - key: EXTERNAL_API_ENABLED
+        value: "true"
+      # indexing 의 사설망 호스트 이름(스킴 없음)과 포트. backend 가 http:// 를 붙인다
+      - key: EXTERNAL_API_HOST
+        fromService:
+          type: pserv
+          name: satc-docs-indexing
+          property: host
+      - key: EXTERNAL_API_PORT
+        fromService:
+          type: pserv
+          name: satc-docs-indexing
+          property: port
+
+  - type: pserv
+    name: satc-docs-indexing
+    runtime: docker
+    region: frankfurt
+    plan: 0.5c-512mb
+    branch: main
+    autoDeployTrigger: commit
+    rootDir: indexing
+    dockerContext: indexing
+    dockerfilePath: indexing/Dockerfile
+    # 작업 큐가 프로세스 메모리에 있어서 한 대만 띄운다. 재시작하면 대기 중인 작업은 사라진다(docs/deploy.md 재색인 절차)
+    numInstances: 1
+    # SIGTERM 뒤 처리 중인 작업이 끝나기를 기다린다
+    maxShutdownDelaySeconds: 120
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: STORAGE_ENDPOINT
+        fromService:
+          type: web
+          name: satc-docs-backend
+          envVarKey: STORAGE_ENDPOINT
+      - key: STORAGE_REGION
+        value: eu-west-3
+      - key: STORAGE_BUCKET
+        fromService:
+          type: web
+          name: satc-docs-backend
+          envVarKey: STORAGE_BUCKET
+      - key: STORAGE_ACCESS_KEY
+        fromService:
+          type: web
+          name: satc-docs-backend
+          envVarKey: STORAGE_ACCESS_KEY
+      - key: STORAGE_SECRET_KEY
+        fromService:
+          type: web
+          name: satc-docs-backend
+          envVarKey: STORAGE_SECRET_KEY
+      - key: STORAGE_PATH_STYLE
+        value: "true"
+      - key: STORAGE_MANAGE_BUCKET
+        value: "false"
+      - key: STORAGE_PUBLIC_READ
+        value: "false"
+      - key: SEARCH_BACKEND
+        value: postgres
+      - key: SEARCH_DUAL_WRITE
+        value: "false"
+      - key: SEARCH_PG_TEXT_INDEX
+        value: pgroonga
+      - key: SEARCH_PG_SCHEMA
+        value: docs_portal
+      - key: SEARCH_PG_HOST
+        fromService:
+          type: web
+          name: satc-docs-backend
+          envVarKey: SUPABASE_DB_HOST
+      - key: SEARCH_PG_PORT
+        value: "5432"
+      - key: SEARCH_PG_DB
+        value: postgres
+      - key: SEARCH_PG_USER
+        fromService:
+          type: web
+          name: satc-docs-backend
+          envVarKey: SPRING_DATASOURCE_USERNAME
+      - key: SEARCH_PG_PASSWORD
+        fromService:
+          type: web
+          name: satc-docs-backend
+          envVarKey: SPRING_DATASOURCE_PASSWORD
+      # libpq 가 읽는다. 암호화하고 인증서는 검증하지 않는다
+      - key: PGSSLMODE
+        value: require
+      - key: BACKEND_API_HOST
+        fromService:
+          type: web
+          name: satc-docs-backend
+          property: host
+      - key: BACKEND_API_PORT
+        fromService:
+          type: web
+          name: satc-docs-backend
+          property: port
+      # 커넥션 풀 최대는 작업자 수 + 2 다. 10MB 문서 두 개를 동시에 처리해도 512 MB 안에 들어온다
+      - key: QUEUE_MAX_WORKERS
+        value: "2"
+      # 기본값 true 는 디버그 로그와 500 응답의 예외 내용을 낸다
+      - key: DEBUG
+        value: "false"
