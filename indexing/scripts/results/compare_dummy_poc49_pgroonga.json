@@ -1,0 +1,553 @@
+{
+ "query_set": "scripts/querysets/poc49.yaml",
+ "documents": 51,
+ "queries": 49,
+ "postgres_text_index": "pgroonga",
+ "summary": {
+  "es": {
+   "hit@1": 0.816,
+   "hit@3": 0.939,
+   "hit@5": 0.959,
+   "mrr": 0.879
+  },
+  "postgres": {
+   "hit@1": 0.918,
+   "hit@3": 1.0,
+   "hit@5": 1.0,
+   "mrr": 0.959
+  }
+ },
+ "by_category": {
+  "정확": {
+   "queries": 2,
+   "es_hit@5": 2,
+   "postgres_hit@5": 2
+  },
+  "조사": {
+   "queries": 16,
+   "es_hit@5": 14,
+   "postgres_hit@5": 16
+  },
+  "어미": {
+   "queries": 6,
+   "es_hit@5": 6,
+   "postgres_hit@5": 6
+  },
+  "한영혼용": {
+   "queries": 14,
+   "es_hit@5": 14,
+   "postgres_hit@5": 14
+  },
+  "의미": {
+   "queries": 3,
+   "es_hit@5": 3,
+   "postgres_hit@5": 3
+  },
+  "짧은키워드": {
+   "queries": 6,
+   "es_hit@5": 6,
+   "postgres_hit@5": 6
+  },
+  "숫자": {
+   "queries": 1,
+   "es_hit@5": 1,
+   "postgres_hit@5": 1
+  },
+  "모호": {
+   "queries": 1,
+   "es_hit@5": 1,
+   "postgres_hit@5": 1
+  }
+ },
+ "pairs_failed_on_postgres": [],
+ "failed": [],
+ "per_query": [
+  {
+   "query": "와일드카드 임포트 금지",
+   "category": "정확",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "임포트를 줄바꿈하나요",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "들여쓰기는 몇 칸으로 하나",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "중괄호를 생략해도 되는지",
+   "category": "어미",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "JavaDoc 주석",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "메서드 파라미터 설명 태그",
+   "category": "의미",
+   "pair_id": null,
+   "es_rank": 2,
+   "postgres_rank": 1
+  },
+  {
+   "query": "TODO FIXME 태그",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "브랜치 삭제 시점",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "feature 브랜치는 어디서 분기하나요",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "커밋 메시지 제목 길이",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "커밋 타입 종류",
+   "category": "짧은키워드",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "PR 승인 리뷰어 수",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 2,
+   "postgres_rank": 2
+  },
+  {
+   "query": "풀 리퀘스트에 적을 내용",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "코드 리뷰할 때 확인할 것",
+   "category": "어미",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 2
+  },
+  {
+   "query": "REST API URL 동사",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "오류 응답 상태 코드 409",
+   "category": "숫자",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "예외를 삼키는 catch",
+   "category": "어미",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "로그에 비밀번호 기록",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 2,
+   "postgres_rank": 1
+  },
+  {
+   "query": "트랜잭션",
+   "category": "짧은키워드",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "readOnly 옵션",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "엔티티 setter",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 2,
+   "postgres_rank": 1
+  },
+  {
+   "query": "N+1",
+   "category": "짧은키워드",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "페치 조인으로 쿼리 폭증 해결",
+   "category": "의미",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "운영 DB에 DDL 직접 실행",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "복합 인덱스 컬럼 순서",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "테스트 이름 짓는 방법",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": null,
+   "postgres_rank": 2
+  },
+  {
+   "query": "테스트 컨테이너",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "커버리지 목표 수치",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "SQL 파라미터 바인딩",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "Bearer 토큰 헤더",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "CORS 와일드카드",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "캐시 만료 시간",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "멱등하게 설계",
+   "category": "어미",
+   "pair_id": null,
+   "es_rank": 3,
+   "postgres_rank": 1
+  },
+  {
+   "query": "멀티 스테이지 빌드",
+   "category": "정확",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "파이프라인이 실패하면 머지",
+   "category": "어미",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "롤백",
+   "category": "짧은키워드",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "장애 보고서에 들어갈 항목",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 2
+  },
+  {
+   "query": "알람 임계값",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "상수 이름 규칙",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": null,
+   "postgres_rank": 1
+  },
+  {
+   "query": "롬복",
+   "category": "짧은키워드",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "엔티티를 직접 반환하지 말 것",
+   "category": "어미",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "커서 방식 페이징",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "UTC 시각 저장",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "업로드 파일 확장자 검증",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "OpenAPI 스펙 문서화",
+   "category": "한영혼용",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "형태소 분석기 한국어 조사 처리",
+   "category": "의미",
+   "pair_id": null,
+   "es_rank": 4,
+   "postgres_rank": 1
+  },
+  {
+   "query": "릴리즈 노트",
+   "category": "짧은키워드",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  },
+  {
+   "query": "하드코딩된 서명 키",
+   "category": "조사",
+   "pair_id": null,
+   "es_rank": 2,
+   "postgres_rank": 1
+  },
+  {
+   "query": "코딩 스타일",
+   "category": "모호",
+   "pair_id": null,
+   "es_rank": 1,
+   "postgres_rank": 1
+  }
+ ],
+ "es_index": {
+  "mapping": {
+   "full_documents": {
+    "mappings": {
+     "properties": {
+      "content": {
+       "type": "text",
+       "fields": {
+        "code": {
+         "type": "text",
+         "analyzer": "code_analyzer"
+        },
+        "mixed": {
+         "type": "text",
+         "analyzer": "mixed_analyzer"
+        }
+       }
+      },
+      "created_at": {
+       "type": "date"
+      },
+      "document_id": {
+       "type": "keyword"
+      },
+      "metadata": {
+       "properties": {
+        "bucket_name": {
+         "type": "text",
+         "fields": {
+          "keyword": {
+           "type": "keyword",
+           "ignore_above": 256
+          }
+         }
+        },
+        "content_type": {
+         "type": "text",
+         "fields": {
+          "keyword": {
+           "type": "keyword",
+           "ignore_above": 256
+          }
+         }
+        },
+        "document_id": {
+         "type": "text",
+         "fields": {
+          "keyword": {
+           "type": "keyword",
+           "ignore_above": 256
+          }
+         }
+        },
+        "document_title": {
+         "type": "text",
+         "fields": {
+          "keyword": {
+           "type": "keyword",
+           "ignore_above": 256
+          }
+         }
+        },
+        "file_size": {
+         "type": "long"
+        },
+        "last_modified": {
+         "type": "date"
+        },
+        "object_name": {
+         "type": "text",
+         "fields": {
+          "keyword": {
+           "type": "keyword",
+           "ignore_above": 256
+          }
+         }
+        }
+       }
+      },
+      "title": {
+       "type": "text",
+       "fields": {
+        "mixed": {
+         "type": "text",
+         "analyzer": "mixed_analyzer"
+        }
+       }
+      },
+      "updated_at": {
+       "type": "date"
+      }
+     }
+    }
+   }
+  },
+  "settings": {
+   "full_documents": {
+    "settings": {
+     "index": {
+      "routing": {
+       "allocation": {
+        "include": {
+         "_tier_preference": "data_content"
+        }
+       }
+      },
+      "number_of_shards": "1",
+      "provided_name": "full_documents",
+      "creation_date": "1793767308912",
+      "analysis": {
+       "analyzer": {
+        "mixed_analyzer": {
+         "filter": [
+          "lowercase",
+          "cjk_bigram"
+         ],
+         "type": "custom",
+         "tokenizer": "standard"
+        },
+        "code_analyzer": {
+         "filter": [
+          "lowercase"
+         ],
+         "type": "custom",
+         "tokenizer": "code_tokenizer"
+        }
+       },
+       "tokenizer": {
+        "code_tokenizer": {
+         "pattern": "[^A-Za-z0-9_]+",
+         "type": "pattern"
+        }
+       }
+      },
+      "number_of_replicas": "0",
+      "uuid": "oPBXtmN-TGaLPZ3jM47aig",
+      "version": {
+       "created": "8500003"
+      }
+     }
+    }
+   }
+  }
+ }
+}

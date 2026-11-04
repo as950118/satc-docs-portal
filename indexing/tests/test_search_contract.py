@@ -79,3 +79,12 @@ def test_chunk_search_with_source_file_returns_only_that_file(client):
     assert r.status_code == 200
     results = r.json()["results"]
     assert results and {x["metadata"]["source_file"] for x in results} == {LONG_DOC_SOURCE}
+
+
+def test_stats_keeps_the_es_key_and_adds_postgres(client):
+    from app.api import routes
+    with patch.object(routes, "elasticsearch_client") as es:
+        es.get_index_stats.return_value = {"document_count": 0}
+        body = client.get("/api/v1/stats").json()
+    assert {"elasticsearch", "queue", "message"} <= set(body)
+    assert body["postgres"]["document_count"] == len(CORPUS)
