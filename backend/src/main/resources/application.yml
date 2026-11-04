@@ -51,6 +51,9 @@ external:
     enabled: true
     
 docs:
+  db:
+    # 테이블을 둘 PostgreSQL 스키마. 비우면 search_path 기본값(public), 정하면 기동 시 스키마를 만들고 그 안에 둔다 (DbSchemaConfig)
+    schema: ${DOCS_DB_SCHEMA:}
   sync:
     # 코드 → 문서 동기화 토큰 (ARCH-0001). 비어 있으면 PUT /api/v1/docs/sync 비활성
     token: ${DOCS_SYNC_TOKEN:}
