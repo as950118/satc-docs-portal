@@ -38,7 +38,7 @@ class ChunkingService:
         
         Args:
             content: 청크 내용 (사용되지 않음, 호환성 유지)
-            file_path: 파일 경로 (MinIO objectName)
+            file_path: 파일 경로 (저장소 객체 키)
             metadata: 메타데이터
             
         Returns:
@@ -48,7 +48,7 @@ class ChunkingService:
         if metadata and "document_title" in metadata:
             return metadata["document_title"]
         
-        # MinIO objectName에서 제목 추출 (documents/UUID/title 형식)
+        # 객체 키에서 제목 추출 (documents/UUID/title 형식)
         try:
             # object_name을 '/'로 분리
             parts = file_path.split("/")

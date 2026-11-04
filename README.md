@@ -10,7 +10,7 @@ SATC(Standard for AI Tools Commando)에서 개발하는 MCP Server의 문서 데
 ### Infrastructure
 - Database: PostgreSQL 16.3
 - Searching Engine: Elasticsearch 8.11.0
-- Object Storage: MinIO RELEASE.2025-09-07T16-13-09Z
+- Object Storage: MinIO RELEASE.2025-09-07T16-13-09Z (기본값. S3 호환 저장소인 Supabase Storage 로 바꿀 수 있음, [docs/storage.md](docs/storage.md))
 - Deployment: Docker
 
 ### Frontend Server
@@ -25,13 +25,13 @@ SATC(Standard for AI Tools Commando)에서 개발하는 MCP Server의 문서 데
 - Framework: Spring Boot 3.5.5
 - Java Version: 17
 - Database: PostgreSQL (Spring Data JPA)
-- MinIO Client: MinIO 8.5.17
+- S3 Client: AWS SDK for Java v2 2.33.2
 
 ### Indexing Server
 - Framework: FastAPI 0.104.1
 - Python Runtime: uvicorn 0.24.0
 - Search Engine: Elasticsearch 8.11.0
-- Minio Client Client: MinIO 7.2.0
+- S3 Client: boto3 1.43.123
 - Text Processing: LangChain Text Splitters 0.0.1
 
 
@@ -147,9 +147,15 @@ docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .
 | `SPRING_DATASOURCE_URL` | backend | `jdbc:postgresql://127.0.0.1:5432/docs` (compose는 `postgres` 컨테이너) | O | PostgreSQL 주소 |
 | `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | backend | `postgres` / `postgres` (compose는 `POSTGRES_USER`/`POSTGRES_PASSWORD`) | O | DB 계정 |
 | `CORS_ALLOWED_ORIGINS` | backend | 없음 (`dev` 프로필 `http://localhost:3000,http://127.0.0.1:3000`, compose `http://localhost:3000`) | O | 브라우저 요청을 허용할 프론트엔드 Origin, 쉼표로 구분. 비어 있으면 기동하지 않습니다 |
-| `MINIO_HOST` / `MINIO_PORT` | backend | `127.0.0.1` / `9000` (compose는 `minio` 컨테이너) | O | MinIO 주소 |
-| `MINIO_CLIENT_ID` / `MINIO_CLIENT_SECRET` | backend | `minioadmin` / `minioadmin` (compose는 `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY`) | O | MinIO 계정 |
-| `MINIO_BUCKET_NAME` | backend, indexing | `docs` | | 문서 버킷 |
+| `STORAGE_ENDPOINT` | backend, indexing | 없음 → `MINIO_*` 주소 (compose는 `http://minio:9000`) | O | 파일 저장소(S3 호환) 주소. Supabase는 `https://<ref>.storage.supabase.co/storage/v1/s3` |
+| `STORAGE_REGION` / `STORAGE_BUCKET` | backend, indexing | `us-east-1` / `MINIO_BUCKET_NAME`(`docs`) | | 서명 리전과 문서 버킷 |
+| `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | backend, indexing | 없음 → `MINIO_*` 계정 (compose는 `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY`) | O | 저장소 액세스 키 |
+| `STORAGE_PATH_STYLE` / `STORAGE_MANAGE_BUCKET` / `STORAGE_PUBLIC_READ` | backend, indexing | `true` / `true` / `true` | | path-style 주소, 버킷이 없으면 생성, 새 버킷에 익명 읽기 정책. Supabase는 `true` / `false` / `false` |
+| `STORAGE_ASCII_KEYS` | backend | `false` | | `true`면 객체 키에 제목 대신 문서 ID를 씁니다(`documents/{id}/{id}.{ext}`). 한글 키를 거부하는 Supabase는 `true` |
+| `MINIO_HOST` / `MINIO_PORT` / `MINIO_CLIENT_ID` / `MINIO_CLIENT_SECRET` | backend | `127.0.0.1` / `9000` / `minioadmin` / `minioadmin` | | 예전 MinIO 설정. `STORAGE_*`가 비어 있을 때만 씁니다 |
+| `MINIO_ENDPOINT` / `MINIO_SECURE` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | indexing | `localhost:9000` / `false` / `minioadmin` / `minioadmin` | | 예전 MinIO 설정. `STORAGE_*`가 비어 있을 때만 씁니다 |
+| `MINIO_BUCKET_NAME` | backend, indexing, compose | `docs` | | 예전 버킷 설정. `STORAGE_BUCKET`이 비어 있을 때 씁니다 |
+| `DOCS_MAX_UPLOAD_SIZE` / `DOCS_MAX_REQUEST_SIZE` | backend | `50MB` / `100MB` | | 업로드 파일 하나와 요청 전체의 상한. 넘으면 413 |
 | `EXTERNAL_API_HOST` / `EXTERNAL_API_PORT` | backend | `http://127.0.0.1` / `8000` (compose는 `indexing` 컨테이너) | O | indexing 서비스 주소. 업로드 알림을 보냅니다 |
 | `EXTERNAL_API_ENABLED` | backend | `true` | | `false`면 indexing 알림을 보내지 않습니다 |
 | `DOCS_SYNC_TOKEN` | backend | 없음 | | 코드→문서 동기화(`PUT /api/v1/docs/sync`) 토큰. 비어 있으면 동기화 API를 끕니다 |
@@ -164,16 +170,16 @@ docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .
 | `VITE_API_BASE_URL` | frontend | `http://localhost:8080` (compose 동일) | O | 브라우저가 호출할 백엔드 주소. 컨테이너는 기동 시 이 값으로 `/config.js`를 만들고, 비어 있으면 기동하지 않습니다. `npm run dev`/`build`는 Vite 환경변수로 읽습니다 |
 | `VITE_JENKINS_URL` / `VITE_ARGOCD_URL` / `VITE_COMMON_CODE_URL` | frontend | 없음 | | 상단 바로가기 링크. 비어 있으면 해당 링크를 숨깁니다 |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose | `docs` / `postgres` / `postgres` | O | postgres 컨테이너 초기값이자 backend DB 계정 |
-| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | compose | `minioadmin` / `minioadmin` | O | minio 컨테이너 루트 계정이자 backend·indexing MinIO 계정 |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | compose | `minioadmin` / `minioadmin` | O | minio 컨테이너 루트 계정. `STORAGE_ACCESS_KEY`/`STORAGE_SECRET_KEY`가 비어 있으면 backend·indexing 계정으로도 씁니다 |
 | `BACKEND_PORT` / `FRONTEND_PORT` / `INDEXING_PORT` / `POSTGRES_PORT` / `MINIO_PORT` / `MINIO_CONSOLE_PORT` | compose | `8080` / `3000` / `8000` / `5432` / `9000` / `9001` | | 호스트에 여는 포트 |
-
 | `SEARCH_BACKEND` | indexing | `es` | | 포털 검색, 청크 검색, 전문 조회가 읽을 저장소. `es` 또는 `postgres`. 다른 값이면 기동하지 않습니다 |
 | `SEARCH_DUAL_WRITE` | indexing | `false` | | `true`면 다른 저장소에도 씁니다. 활성 저장소 쓰기만 성공 조건이고 다른 쪽 실패는 경고와 `search_reindex_state` 표시로 남습니다. 병행 단계와 롤백 뒤에는 `true`를 유지합니다 |
 | `SEARCH_PG_TEXT_INDEX` | indexing | `pgroonga` | | PostgreSQL 한국어 검색 방식. `pgroonga` 또는 `trgm`. 확장이 없으면 기동하지 않으며 자동으로 바꾸지 않습니다. PGroonga 이미지는 `docker/postgres-pgroonga` |
 | `SEARCH_PG_HOST` / `SEARCH_PG_PORT` / `SEARCH_PG_DB` / `SEARCH_PG_USER` / `SEARCH_PG_PASSWORD` | indexing | `localhost` / `5432` / `docs` / `postgres` / `postgres` (compose는 `postgres` 컨테이너와 `POSTGRES_*`) | PostgreSQL 사용 시 | 검색 테이블을 둘 DB. `SEARCH_BACKEND=postgres`이거나 `SEARCH_DUAL_WRITE=true`일 때만 접속합니다 |
 | `SEARCH_PG_TRGM_THRESHOLD` | indexing | `0.2` | | `trgm` 방식의 `pg_trgm.word_similarity_threshold` |
 
-indexing 서비스의 나머지 설정(`ELASTICSEARCH_HOST`, `CHUNK_SIZE` 등)은 `indexing/app/config.py`와 `docker-compose.yml`을 보세요.
+indexing 서비스의 나머지 설정(`ELASTICSEARCH_HOST`, `CHUNK_SIZE` 등)은 `indexing/app/config.py`와 `docker-compose.yml`을 보세요.  
+저장소 설정의 기본값 규칙, Supabase Storage로 바꾸는 법, 기존 문서 키를 옮기는 이관 스크립트는 [docs/storage.md](docs/storage.md)에 있습니다.
 검색 재색인, 정합성 검사, 품질 비교, 지연 측정 스크립트는 `indexing/scripts/`에 있고 각 파일 첫머리에 사용법이 있습니다.
 
 ---

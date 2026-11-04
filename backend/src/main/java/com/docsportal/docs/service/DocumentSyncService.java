@@ -10,7 +10,7 @@ public interface DocumentSyncService {
      * 스토리지 저장까지 동기 처리하며, 실패 시 기존 문서는 변경되지 않습니다.
      *
      * @throws IllegalArgumentException 요청 값이 잘못된 경우
-     * @throws DocumentSyncStorageException 스토리지(MinIO) 저장 실패
+     * @throws DocumentSyncStorageException 스토리지 저장 실패
      */
     default DocumentSyncResponse sync(DocumentSyncRequest request) {
         return sync(request, null);

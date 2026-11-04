@@ -1,4 +1,4 @@
-"""Upload a corpus JSON to MinIO and index it through the real document processor.
+"""Upload a corpus JSON to the object storage and index it through the real document processor.
 
 For local verification only. It refuses to run unless every search store it would write to is empty,
 so it cannot add test documents to a stack that already holds documents.
@@ -6,14 +6,13 @@ so it cannot add test documents to a stack that already holds documents.
     cd indexing && python -m scripts.load_corpus --corpus tests/fixtures/dummy_corpus.json
 """
 import argparse
-import io
 import json
 import sys
 import time
 
-from app.config import settings
+from app.config import settings, storage_config
 from app.services import document_processor as dp
-from app.services.minio_client import minio_client
+from app.services.object_storage import object_storage
 from app.services.queue_service import InternalQueueService, TaskStatus, set_queue_service
 from app.services.elasticsearch_client import elasticsearch_client
 from app.services.full_document_client import full_document_client
@@ -39,8 +38,8 @@ def store_counts(stores):
 
 def refuse_unless_empty(bucket, stores):
     leftovers = {k: v for k, v in store_counts(stores).items() if v}
-    if any(True for _ in minio_client.client.list_objects(bucket, recursive=True)):
-        leftovers[f"minio:{bucket}"] = "not empty"
+    if object_storage.client.list_objects_v2(Bucket=bucket, MaxKeys=1).get("KeyCount"):
+        leftovers[f"storage:{bucket}"] = "not empty"
     if leftovers:
         sys.exit(f"refusing to load: target stores are not empty {leftovers}")
 
@@ -51,7 +50,7 @@ def main():
     parser.add_argument("--es-full-index-body", help="JSON body to create the full_documents index with before loading")
     args = parser.parse_args()
 
-    bucket = settings.minio_bucket_name
+    bucket = storage_config.bucket
     stores = build_search_stores(settings)
     set_search_stores(stores)
     refuse_unless_empty(bucket, stores)
@@ -62,7 +61,7 @@ def main():
     docs = json.load(open(args.corpus))["documents"]
     for doc in docs:
         data = doc["content"].encode("utf-8")
-        minio_client.client.put_object(bucket, object_name(doc), io.BytesIO(data), len(data), content_type="text/markdown")
+        object_storage.put(bucket, object_name(doc), data, "text/markdown")
 
     statuses = {}
     dp.update_document_status = lambda name, status="COMPLETE": statuses.__setitem__(name, status) or True

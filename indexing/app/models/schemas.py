@@ -16,15 +16,17 @@ class TaskStatus(str, Enum):
 
 class DocumentProcessRequest(BaseModel):
     """Request model for document processing"""
-    bucket_name: str = Field(..., description="MinIO 버킷 이름", alias="bucketName")
-    object_name: str = Field(..., description="MinIO 객체 이름 (파일 경로)", alias="objectName")
+    bucket_name: str = Field(..., description="저장소 버킷 이름", alias="bucketName")
+    object_name: str = Field(..., description="저장소 객체 키 (파일 경로)", alias="objectName")
+    title: Optional[str] = Field(default=None, description="검색 색인에 쓸 문서 제목. 없으면 objectName 에서 뽑는다")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="추가 메타데이터")
     
     class Config:
         json_schema_extra = {
             "example": {
-                "bucketName": "documents",
-                "objectName": "sample.md",
+                "bucketName": "docs",
+                "objectName": "documents/0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b/0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b.md",
+                "title": "배포 가이드",
                 "metadata": {
                     "source": "user_upload",
                     "category": "documentation"

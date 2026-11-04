@@ -15,10 +15,8 @@ from fastapi.testclient import TestClient
 from app.search.stores import SearchStores, set_search_stores
 from tests.pg_support import CORPUS, SERVERS, TempDatabase, available_strategies, build, make_store
 
-# minio_client connects to MinIO on import; the search routes never use it.
-with patch.dict(sys.modules, {"app.services.minio_client": MagicMock()}):
-    from app.main import app
-    from scripts.search_api_snapshot import CALLS, LONG_DOC_SOURCE
+from app.main import app
+from scripts.search_api_snapshot import CALLS, LONG_DOC_SOURCE
 
 ES = json.loads((Path(__file__).parent / "fixtures" / "es_search_snapshot.json").read_text())["responses"]
 

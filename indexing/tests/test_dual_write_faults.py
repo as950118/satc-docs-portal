@@ -2,19 +2,18 @@
 
 실행: SEARCH_TEST_PG_PGROONGA=... python -m pytest tests/test_dual_write_faults.py
 """
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 from psycopg_pool import ConnectionPool
 
 from app.search.pg_store import PgSearchBackend
+from app.services.object_storage import StoredObject
 from app.search.stores import SearchStores
 from tests.fakes import MemoryStore
 from tests.pg_support import SERVERS, TempDatabase, make_store
 
-with patch.dict(sys.modules, {"app.services.minio_client": MagicMock()}):
-    from app.services import document_processor as dp
+from app.services import document_processor as dp
 
 DOC_ID = "12345678-1234-1234-1234-123456789abc"
 OBJECT = f"documents/{DOC_ID}/장애 주입 문서.md"
@@ -44,12 +43,10 @@ def unreachable_pg():
 def process(stores):
     task = MagicMock(task_id="t1", data={"bucket_name": "dummy-docs", "object_name": OBJECT, "metadata": {}})
     with patch.object(dp, "get_queue_service", return_value=MagicMock()), \
-         patch.object(dp, "minio_client") as minio, \
+         patch.object(dp, "object_storage") as storage, \
          patch.object(dp, "get_search_stores", return_value=stores), \
          patch.object(dp, "update_document_status", return_value=True) as status:
-        minio.file_exists.return_value = True
-        minio.download_file.return_value = BODY.encode("utf-8")
-        minio.get_file_info.return_value = None
+        storage.get.return_value = StoredObject(data=BODY.encode("utf-8"), content_type="text/markdown", last_modified=None)
         try:
             dp.process_document_handler(task)
         except Exception:

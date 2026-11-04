@@ -10,11 +10,16 @@ from app.models.schemas import DocumentChunk
 from app.search.stores import SearchStores
 from tests.fakes import MemoryStore
 
-# minio_client 는 import 하는 순간 MinIO 에 연결하므로 document_processor 를 불러오는 동안만 가짜로 바꾼다.
+# 청킹 모듈은 document_processor 를 불러오는 동안만 가짜로 바꾼다.
 # patch.dict 가 끝나면 sys.modules 를 되돌려서 같은 프로세스의 다른 테스트를 오염시키지 않는다.
-_STUBS = {f"app.services.{n}": MagicMock() for n in ("minio_client", "chunking_service")}
+_STUBS = {f"app.services.{n}": MagicMock() for n in ("chunking_service",)}
 with patch.dict(sys.modules, _STUBS):
     from app.services import document_processor as dp  # noqa: E402
+from app.services.object_storage import ObjectNotFound, StoredObject  # noqa: E402
+
+
+def _stored(text):
+    return StoredObject(data=text.encode("utf-8"), content_type="text/markdown", last_modified=None)
 
 DOC_ID = "12345678-1234-1234-1234-123456789abc"
 OBJECT = f"documents/{DOC_ID}/short.md"
@@ -31,13 +36,14 @@ def _task():
 class ProcessorStatusTest(unittest.TestCase):
     def _run(self, chunks, active, file_exists=True):
         with patch.object(dp, "get_queue_service", return_value=MagicMock()), \
-             patch.object(dp, "minio_client") as minio, \
+             patch.object(dp, "object_storage") as storage, \
              patch.object(dp, "chunking_service") as chunker, \
              patch.object(dp, "get_search_stores", return_value=SearchStores(active=active)), \
              patch.object(dp, "update_document_status", return_value=True) as status:
-            minio.file_exists.return_value = file_exists
-            minio.download_file.return_value = "# 짧은 문서\n내용".encode("utf-8")
-            minio.get_file_info.return_value = None
+            if file_exists:
+                storage.get.return_value = _stored("# 짧은 문서\n내용")
+            else:
+                storage.get.side_effect = ObjectNotFound(f"cmp-docs/{OBJECT}")
             chunker.chunk_document.return_value = chunks
             chunker.get_chunking_stats.return_value = {}
             try:
