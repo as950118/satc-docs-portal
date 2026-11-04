@@ -1,4 +1,4 @@
--- Search index tables written by the indexing service. Every statement is idempotent.
+-- Every statement must stay idempotent: the indexing service runs this file on each start.
 -- No foreign key to the portal document table: indexing may write before or after the portal,
 -- a delete race must not fail an index write, and index-only documents have no document row.
 

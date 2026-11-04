@@ -143,8 +143,6 @@ class PgSearchBackend:
                                                   (list(self.strategy.indexes),))}
         return [name for name in self.strategy.indexes if name not in present]
 
-    # ---- writes ----
-
     def index_document(self, document: FullDocument, chunks: List[DocumentChunk]) -> None:
         """One transaction per document: upsert the document, then replace all of its chunks."""
         doc_id = document.document_id
@@ -197,8 +195,6 @@ class PgSearchBackend:
                     "insert into search_reindex_state (document_id, target, reason) values (%s, %s, %s) "
                     "on conflict (document_id, target) do update set reason = excluded.reason, marked_at = now()",
                     (document_id, target, reason))
-
-    # ---- reads ----
 
     def _ranked(self, table: str, columns: str, query: str, size: int, offset: int, extra_where: str = "",
                 extra_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
