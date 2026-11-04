@@ -27,6 +27,7 @@ import com.docsportal.docs.live.SseHub;
 import com.docsportal.docs.repository.DocsRepository;
 import com.docsportal.docs.service.DocumentServiceImpl;
 import com.docsportal.docs.service.ExternalService;
+import com.docsportal.docs.service.SpecExportService;
 import com.docsportal.docs.service.SpecSearchService;
 
 import io.minio.MinioClient;
@@ -63,7 +64,7 @@ class LiveEventsApiTest extends SpecApiTestSupport {
         docs.deleteAll();
         org.springframework.test.util.ReflectionTestUtils.setField(documentService, "bucketName", "docs");
         all = MockMvcBuilders.standaloneSetup(
-            new SpecController(specService, auth),
+            new SpecController(specService, new SpecExportService(documents), auth),
             new DocumentController(documentService, externalService, specSearchService),
             new LiveEventsController(hub))
             // Spring Boot 는 String 변환기를 UTF-8 로 등록한다. standalone 은 기본값이 ISO-8859-1 이라 맞춰 준다
