@@ -1,7 +1,5 @@
 package com.docsportal.docs.service;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,7 +14,6 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.docsportal.docs.format.request.DocumentSyncRequest;
@@ -30,9 +27,8 @@ import com.docsportal.docs.persistence.DocumentEventAction;
 import com.docsportal.docs.repository.DocumentEventRepository;
 import com.docsportal.docs.persistence.DocumentStatus;
 import com.docsportal.docs.repository.DocsRepository;
-
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
+import com.docsportal.docs.storage.ObjectStorage;
+import com.docsportal.docs.storage.StorageSettings;
 
 @Service
 public class DocumentSyncServiceImpl implements DocumentSyncService {
@@ -41,32 +37,29 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
     private static final Pattern SHA256_HEX = Pattern.compile("^[0-9a-f]{64}$");
     private static final int MAX_COMMIT_LENGTH = 40;
 
-    private final MinioClient minioClient;
+    private final ObjectStorage storage;
+    private final StorageSettings storageSettings;
     private final DocsRepository docsRepository;
     private final ExternalService externalService;
-    private final DocumentService documentService;
     private final Clock clock;
     private final LiveEventPublisher liveEvents;
     private final DocumentEventRepository eventRepository;
 
-    @Value("${minio.bucket-name}")
-    private String bucketName;
-
     @Autowired
-    public DocumentSyncServiceImpl(MinioClient minioClient, DocsRepository docsRepository,
-                                   ExternalService externalService, DocumentService documentService,
-                                   LiveEventPublisher liveEvents, DocumentEventRepository eventRepository) {
-        this(minioClient, docsRepository, externalService, documentService, liveEvents, eventRepository, Clock.systemUTC());
+    public DocumentSyncServiceImpl(ObjectStorage storage, StorageSettings storageSettings, DocsRepository docsRepository,
+                                   ExternalService externalService, LiveEventPublisher liveEvents,
+                                   DocumentEventRepository eventRepository) {
+        this(storage, storageSettings, docsRepository, externalService, liveEvents, eventRepository, Clock.systemUTC());
     }
 
-    DocumentSyncServiceImpl(MinioClient minioClient, DocsRepository docsRepository,
-                            ExternalService externalService, DocumentService documentService,
-                            LiveEventPublisher liveEvents, DocumentEventRepository eventRepository, Clock clock) {
+    DocumentSyncServiceImpl(ObjectStorage storage, StorageSettings storageSettings, DocsRepository docsRepository,
+                            ExternalService externalService, LiveEventPublisher liveEvents,
+                            DocumentEventRepository eventRepository, Clock clock) {
         this.eventRepository = eventRepository;
-        this.minioClient = minioClient;
+        this.storage = storage;
+        this.storageSettings = storageSettings;
         this.docsRepository = docsRepository;
         this.externalService = externalService;
-        this.documentService = documentService;
         this.clock = clock;
         this.liveEvents = liveEvents;
     }
@@ -110,7 +103,8 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
         }
         docsRepository.save(document);
 
-        externalService.reindexDocument(bucketName, document.getId() + "." + document.getExtension(), document.getFilePath());
+        externalService.reindexDocument(storageSettings.bucket(), document.getId() + "." + document.getExtension(),
+            document.getFilePath(), document.getTitle());
         liveEvents.publish(LiveEventType.DOCUMENT_UPDATED, document.getId(), document.getTitle(), document.getParentId(),
             DocumentStatus.INDEXING.name(), null);
         logger.info("[SYNC] Updated: {} ({})", request.sourceKey(), document.getId());
@@ -118,13 +112,12 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
     }
 
     private DocumentSyncResponse create(DocumentSyncRequest request, Instant now, UploadActor actor) {
-        documentService.createBucketIfNotExists();
+        storage.ensureBucket();
 
         String documentId = UUID.randomUUID().toString();
         String title = Normalizer.normalize(removeExtension(request.fileName()), Normalizer.Form.NFC);
         String extension = extensionOf(request.fileName());
-        // DocumentServiceImpl 과 동일한 경로 규칙 (Indexing Server가 경로에서 문서 ID를 추출함)
-        String filePath = String.format("documents/%s/%s.%s", documentId, title, extension);
+        String filePath = storageSettings.documentKey(documentId, title, extension);
 
         // 저장소 먼저 — 실패하면 DB에 아무것도 남기지 않는다
         putObject(filePath, request);
@@ -134,7 +127,7 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
             .id(documentId)
             .parentId(parentId)
             .title(title)
-            .bucket(bucketName)
+            .bucket(storageSettings.bucket())
             .filePath(filePath)
             .extension(extension)
             .isFolder(false)
@@ -149,7 +142,7 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
         }
         docsRepository.save(document);
 
-        externalService.notifyDocumentUploaded(bucketName, filePath);
+        externalService.notifyDocumentUploaded(storageSettings.bucket(), filePath, title);
         liveEvents.publish(LiveEventType.DOCUMENT_CREATED, documentId, title, parentId,
             DocumentStatus.INDEXING.name(), null);
         logger.info("[SYNC] Created: {} ({})", request.sourceKey(), documentId);
@@ -157,16 +150,9 @@ public class DocumentSyncServiceImpl implements DocumentSyncService {
     }
 
     private void putObject(String filePath, DocumentSyncRequest request) {
-        byte[] bytes = request.fileBytes();
-        try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
-            minioClient.putObject(
-                PutObjectArgs.builder()
-                    .bucket(bucketName)
-                    .object(filePath)
-                    .stream(inputStream, bytes.length, -1)
-                    .contentType(request.contentType() == null ? "application/x-yaml" : request.contentType())
-                    .build()
-            );
+        try {
+            storage.put(filePath, request.fileBytes(),
+                request.contentType() == null ? "application/x-yaml" : request.contentType());
         } catch (Exception e) {
             logger.error("[SYNC] Storage upload failed: {} - {}", filePath, e.getMessage(), e);
             throw new DocumentSyncStorageException("스토리지 저장에 실패했습니다: " + e.getMessage(), e);

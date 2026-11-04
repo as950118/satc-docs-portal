@@ -1,43 +1,11 @@
 package com.docsportal.docs.format.request;
 
 /**
- * 외부 API 호출을 위한 요청 DTO
- * 문서 업로드 완료 후 호출되는 API의 요청 형식
+ * 문서 업로드 완료 후 Indexing Server 에 보내는 색인 요청 (POST /api/v1/process-document).
+ *
+ * @param bucketName 저장소 버킷 이름 (ex. docs)
+ * @param objectName 저장소 객체 키 (ex. documents/{id}/{제목}.md 또는 documents/{id}/{id}.md)
+ * @param title      검색 색인에 쓸 문서 제목. 없으면 Indexing Server 가 objectName 에서 뽑는다
  */
-public class ExternalApiRequest {
-    
-    private String bucketName;  // MinIO 버킷 이름 (ex. docs)
-    private String objectName;  // MinIO Object 이름 (ex. documents/abcd.md)
-    
-    public ExternalApiRequest() {
-    }
-    
-    public ExternalApiRequest(String bucketName, String objectName) {
-        this.bucketName = bucketName;
-        this.objectName = objectName;
-    }
-    
-    public String getBucketName() {
-        return bucketName;
-    }
-    
-    public void setBucketName(String bucketName) {
-        this.bucketName = bucketName;
-    }
-    
-    public String getObjectName() {
-        return objectName;
-    }
-    
-    public void setObjectName(String objectName) {
-        this.objectName = objectName;
-    }
-    
-    @Override
-    public String toString() {
-        return "ExternalApiRequest{" +
-                "bucketName='" + bucketName + '\'' +
-                ", objectName='" + objectName + '\'' +
-                '}';
-    }
+public record ExternalApiRequest(String bucketName, String objectName, String title) {
 }
