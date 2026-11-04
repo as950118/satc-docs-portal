@@ -91,13 +91,16 @@ class PgSearchBackend:
             conn.execute("select set_config('pg_trgm.word_similarity_threshold', %s, false)", (threshold,))
             conn.commit()
 
-        conninfo = make_conninfo(host=settings.search_pg_host, port=settings.search_pg_port, dbname=settings.search_pg_db,
-                                 user=settings.search_pg_user, password=settings.search_pg_password)
-        pool = ConnectionPool(conninfo, min_size=1, max_size=settings.queue_max_workers + 2, open=True,
+        pool = ConnectionPool(cls.conninfo(settings), min_size=1, max_size=settings.queue_max_workers + 2, open=True,
                               configure=configure if settings.search_pg_text_index == "trgm" else None,
                               name="search-pg")
         pool.wait(timeout=30)
         return cls(pool, settings.search_pg_text_index)
+
+    @staticmethod
+    def conninfo(settings) -> str:
+        return make_conninfo(host=settings.search_pg_host, port=settings.search_pg_port, dbname=settings.search_pg_db,
+                             user=settings.search_pg_user, password=settings.search_pg_password)
 
     def close(self) -> None:
         self.pool.close()
