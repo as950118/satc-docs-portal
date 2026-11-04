@@ -9,7 +9,9 @@ from fastapi.testclient import TestClient
 
 from app.api import routes
 from app.services import document_processor as dp
+from app.search.stores import SearchStores
 from app.services.object_storage import StoredObject
+from tests.fakes import MemoryStore
 
 DOC_ID = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b"
 BODY = "# 배포 가이드\n\n" + "배포 절차를 설명하는 본문입니다. " * 20
@@ -43,19 +45,14 @@ def _index(object_name, title):
     task = MagicMock()
     task.task_id = "t1"
     task.data = {"bucket_name": "docs", "object_name": object_name, "title": title, "metadata": None}
+    store = MemoryStore("es")
     with patch.object(dp, "get_queue_service", return_value=MagicMock()), \
          patch.object(dp, "object_storage") as storage, \
-         patch.object(dp, "elasticsearch_client") as es, \
-         patch.object(dp, "full_document_client") as full, \
+         patch.object(dp, "get_search_stores", return_value=SearchStores(active=store)), \
          patch.object(dp, "update_document_status", return_value=True):
         storage.get.return_value = StoredObject(data=BODY.encode("utf-8"), content_type="text/markdown", last_modified=None)
-        es.delete_chunks_by_source.return_value = {"deleted": 0}
-        es.index_chunks_bulk.side_effect = lambda chunks: {"success": len(chunks)}
-        full.index_document.return_value = {"success": True}
         dp.process_document_handler(task)
-        chunks = es.index_chunks_bulk.call_args.args[0]
-        full_doc = full.index_document.call_args.args[0]
-    return chunks, full_doc
+    return store.chunks[DOC_ID], store.documents[DOC_ID]
 
 
 def test_given_title_is_the_index_title_even_for_an_id_only_key():

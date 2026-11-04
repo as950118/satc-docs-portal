@@ -1,12 +1,20 @@
 """
 Configuration settings for the indexing server
 """
+import os
 import re
 from dataclasses import dataclass, field
+from typing import Literal, Optional
 from urllib.parse import urlsplit
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
+
+SEARCH_CHOICES = {
+    "search_backend": ("es", "postgres"),
+    "search_dual_write": ("true", "false"),
+    "search_pg_text_index": ("pgroonga", "trgm"),
+}
 
 
 class Settings(BaseSettings):
@@ -50,6 +58,28 @@ class Settings(BaseSettings):
     # Backend API Configuration
     backend_api_host: str = Field(default="localhost", env="BACKEND_API_HOST")
     backend_api_port: int = Field(default=8080, env="BACKEND_API_PORT")
+
+    # Search store switch. Each field is read from the upper-case env var of the same name.
+    search_backend: Literal["es", "postgres"] = "es"
+    search_dual_write: bool = False
+    search_pg_text_index: Literal["pgroonga", "trgm"] = "pgroonga"
+    search_pg_host: str = "localhost"
+    search_pg_port: int = 5432
+    search_pg_db: str = "docs"
+    search_pg_user: str = "postgres"
+    search_pg_password: str = "postgres"
+    search_pg_trgm_threshold: float = 0.2
+
+    @field_validator(*SEARCH_CHOICES, mode="before")
+    @classmethod
+    def _one_of(cls, value, info):
+        normalized = str(value).strip().lower()
+        if normalized == "":
+            return cls.model_fields[info.field_name].default
+        allowed = SEARCH_CHOICES[info.field_name]
+        if normalized not in allowed:
+            raise ValueError(f"{info.field_name.upper()} 허용 값: {', '.join(allowed)} (입력: {value!r})")
+        return normalized
 
     class Config:
         env_file = ".env"

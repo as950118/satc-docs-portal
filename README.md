@@ -172,9 +172,15 @@ docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose | `docs` / `postgres` / `postgres` | O | postgres 컨테이너 초기값이자 backend DB 계정 |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | compose | `minioadmin` / `minioadmin` | O | minio 컨테이너 루트 계정. `STORAGE_ACCESS_KEY`/`STORAGE_SECRET_KEY`가 비어 있으면 backend·indexing 계정으로도 씁니다 |
 | `BACKEND_PORT` / `FRONTEND_PORT` / `INDEXING_PORT` / `POSTGRES_PORT` / `MINIO_PORT` / `MINIO_CONSOLE_PORT` | compose | `8080` / `3000` / `8000` / `5432` / `9000` / `9001` | | 호스트에 여는 포트 |
+| `SEARCH_BACKEND` | indexing | `es` | | 포털 검색, 청크 검색, 전문 조회가 읽을 저장소. `es` 또는 `postgres`. 다른 값이면 기동하지 않습니다 |
+| `SEARCH_DUAL_WRITE` | indexing | `false` | | `true`면 다른 저장소에도 씁니다. 활성 저장소 쓰기만 성공 조건이고 다른 쪽 실패는 경고와 `search_reindex_state` 표시로 남습니다. 병행 단계와 롤백 뒤에는 `true`를 유지합니다 |
+| `SEARCH_PG_TEXT_INDEX` | indexing | `pgroonga` | | PostgreSQL 한국어 검색 방식. `pgroonga` 또는 `trgm`. 확장이 없으면 기동하지 않으며 자동으로 바꾸지 않습니다. PGroonga 이미지는 `docker/postgres-pgroonga` |
+| `SEARCH_PG_HOST` / `SEARCH_PG_PORT` / `SEARCH_PG_DB` / `SEARCH_PG_USER` / `SEARCH_PG_PASSWORD` | indexing | `localhost` / `5432` / `docs` / `postgres` / `postgres` (compose는 `postgres` 컨테이너와 `POSTGRES_*`) | PostgreSQL 사용 시 | 검색 테이블을 둘 DB. `SEARCH_BACKEND=postgres`이거나 `SEARCH_DUAL_WRITE=true`일 때만 접속합니다 |
+| `SEARCH_PG_TRGM_THRESHOLD` | indexing | `0.2` | | `trgm` 방식의 `pg_trgm.word_similarity_threshold` |
 
 indexing 서비스의 나머지 설정(`ELASTICSEARCH_HOST`, `CHUNK_SIZE` 등)은 `indexing/app/config.py`와 `docker-compose.yml`을 보세요.  
 저장소 설정의 기본값 규칙, Supabase Storage로 바꾸는 법, 기존 문서 키를 옮기는 이관 스크립트는 [docs/storage.md](docs/storage.md)에 있습니다.
+검색 재색인, 정합성 검사, 품질 비교, 지연 측정 스크립트는 `indexing/scripts/`에 있고 각 파일 첫머리에 사용법이 있습니다.
 
 ---
 ## 🌈  License

@@ -3,13 +3,13 @@ Document processing service using internal queue
 """
 import logging
 import requests
-from typing import Dict, Any, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from app.services.queue_service import get_queue_service, Task
 from app.services.object_storage import ObjectNotFound, object_storage
 from app.services.chunking_service import chunking_service
 from app.services.elasticsearch_client import elasticsearch_client
-from app.services.full_document_client import full_document_client
-from app.models.schemas import FullDocument
+from app.models.schemas import DocumentChunk, FullDocument
+from app.search.stores import get_search_stores
 from app.config import settings, storage_config
 
 logger = logging.getLogger(__name__)
@@ -176,15 +176,51 @@ def update_document_status(object_name: str, status: str = "COMPLETE") -> bool:
         return False
 
 
+def build_document(bucket_name: str, object_name: str, metadata: Optional[Dict[str, Any]],
+                   progress: Callable[[int], None] = lambda _: None,
+                   requested_title: Optional[str] = None) -> Tuple[FullDocument, List[DocumentChunk], int]:
+    """Download one object from storage and turn it into the full document and its chunks."""
+    try:
+        stored = object_storage.get(bucket_name, object_name)
+    except ObjectNotFound:
+        raise Exception(f"File not found in storage: {bucket_name}/{object_name}")
+    file_content = stored.data
+    progress(30)
+    logger.info(f"Downloaded file {bucket_name}/{object_name}, size: {len(file_content)} bytes")
+    progress(50)
+
+    try:
+        content_str = file_content.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            content_str = file_content.decode("latin-1")
+        except UnicodeDecodeError as e:
+            raise Exception(f"Failed to decode file content: {e}")
+    progress(70)
+
+    # 백엔드가 보낸 제목을 쓰고, 없으면(예전 백엔드) 키에서 뽑는다. ASCII 키에는 제목이 없다
+    title = requested_title or extract_title_from_object_name(object_name)
+    document_id = extract_document_id_from_object_name(object_name)
+    enhanced_metadata = metadata.copy() if metadata else {}
+    enhanced_metadata.update({
+        "bucket_name": bucket_name,
+        "object_name": object_name,
+        "document_id": document_id,
+        "document_title": title,
+        "file_size": len(file_content),
+        "last_modified": stored.last_modified.isoformat() if stored.last_modified else None,
+        "content_type": stored.content_type,
+    })
+
+    chunks = chunking_service.chunk_document(content_str, object_name, enhanced_metadata)
+    document = FullDocument(document_id=document_id, title=title, content=content_str, metadata=enhanced_metadata)
+    return document, chunks, len(file_content)
+
+
 def process_document_handler(task: Task) -> Dict[str, Any]:
     """
-    Process document task handler
-    
-    Args:
-        task: Task object containing processing data
-        
-    Returns:
-        Processing result dictionary
+    Build the document, write it to the search stores, then report COMPLETE or FAILED to the portal.
+    The document is COMPLETE when the active store write succeeded (app/search/stores.py).
     """
     task_id = task.task_id
     data = task.data
@@ -192,151 +228,38 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
     object_name = data.get("object_name")
     requested_title = data.get("title")
     metadata = data.get("metadata", {})
-    
+
     logger.info(f"Starting document processing task {task_id} for {bucket_name}/{object_name}")
-    
+
     try:
-        # Update progress: Starting
         queue_service = get_queue_service()
         queue_service.update_task_progress(task_id, 10)
-        
-        # Step 1-2: Download file from storage
-        try:
-            stored = object_storage.get(bucket_name, object_name)
-        except ObjectNotFound:
-            error_msg = f"File not found in storage: {bucket_name}/{object_name}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
-        file_content = stored.data
-        queue_service.update_task_progress(task_id, 30)
-        logger.info(f"Downloaded file {bucket_name}/{object_name}, size: {len(file_content)} bytes")
-        
-        # Update progress: Converting
-        queue_service.update_task_progress(task_id, 50)
-        
-        # Step 3: Convert bytes to string (assuming UTF-8 encoding)
-        try:
-            content_str = file_content.decode("utf-8")
-        except UnicodeDecodeError:
-            try:
-                # Try other encodings
-                content_str = file_content.decode("latin-1")
-            except UnicodeDecodeError as e:
-                error_msg = f"Failed to decode file content: {e}"
-                logger.error(error_msg)
-                raise Exception(error_msg)
-        
-        # Update progress: Chunking
-        queue_service.update_task_progress(task_id, 70)
-        
-        # Step 4: 백엔드가 보낸 제목을 쓰고, 없으면(예전 백엔드) 키에서 뽑는다. ASCII 키에는 제목이 없다
-        title = requested_title or extract_title_from_object_name(object_name)
-        document_id = extract_document_id_from_object_name(object_name)
-        
-        # Chunk the document
-        enhanced_metadata = metadata.copy() if metadata else {}
-        enhanced_metadata.update({
-            "bucket_name": bucket_name,
-            "object_name": object_name,
-            "document_id": document_id,  # UUID를 메타데이터에 추가
-            "document_title": title  # 제목을 메타데이터에 추가
-        })
-        
-        enhanced_metadata.update({
-            "file_size": len(file_content),
-            "last_modified": stored.last_modified.isoformat() if stored.last_modified else None,
-            "content_type": stored.content_type,
-        })
-        
-        # Use object_name as the source file path for chunking
-        chunks = chunking_service.chunk_document(content_str, object_name, enhanced_metadata)
-        
+        document, chunks, file_size = build_document(
+            bucket_name, object_name, metadata, lambda p: queue_service.update_task_progress(task_id, p),
+            requested_title)
         if not chunks:
-            # 제목(#)이 없거나 너무 짧은 문서는 청크가 0개다. 청크가 없어도 전체 문서는 색인해
-            # 검색되게 하고 상태를 COMPLETE 로 바꾼다. 그러지 않으면 문서가 INDEXING 에 영원히 머문다.
             logger.warning(f"No chunks created for file: {bucket_name}/{object_name}, indexing full document only")
-            full_doc_result = full_document_client.index_document(FullDocument(
-                document_id=document_id,
-                title=title,
-                content=content_str,
-                metadata=enhanced_metadata
-            ))
-            status_updated = False
-            if full_doc_result.get("success"):
-                status_updated = update_document_status(object_name, "COMPLETE")
-            return {
-                "success": True,
-                "bucket_name": bucket_name,
-                "object_name": object_name,
-                "file_size": len(file_content),
-                "chunks_created": 0,
-                "elasticsearch_indexed": False,
-                "full_document_indexed": bool(full_doc_result.get("success")),
-                "status_updated": status_updated,
-                "message": f"No chunks created for file: {bucket_name}/{object_name}",
-                "task_id": task_id
-            }
-        
-        logger.info(f"Created {len(chunks)} chunks for file: {bucket_name}/{object_name}")
-        
-        # Update progress: Indexing
         queue_service.update_task_progress(task_id, 90)
-        
-        # Step 5: Index chunks to Elasticsearch
-        # First, delete any existing chunks from the same source file
-        delete_result = elasticsearch_client.delete_chunks_by_source(object_name)
-        if delete_result.get("deleted", 0) > 0:
-            logger.info(f"Deleted {delete_result['deleted']} existing chunks for file: {bucket_name}/{object_name}")
-        
-        # Index new chunks
-        index_result = elasticsearch_client.index_chunks_bulk(chunks)
-        
-        # Get chunking statistics
-        chunking_stats = chunking_service.get_chunking_stats(chunks)
-        
-        # Step 6: Index full document
-        logger.info(f"Indexing full document for {bucket_name}/{object_name}")
-        
-        # Create full document object (document_id and title already extracted above)
-        full_doc = FullDocument(
-            document_id=document_id,
-            title=title,
-            content=content_str,
-            metadata=enhanced_metadata
-        )
-        
-        # Index full document
-        full_doc_result = full_document_client.index_document(full_doc)
-        
-        # ES 인덱싱 결과에 따라 상태 업데이트 API 호출. 성공한 청크가 없으면 FAILED 로 남겨 INDEXING 에 갇히지 않게 한다
-        status_updated = False
-        if index_result["success"] > 0:
-            logger.info(f"ES indexing successful for {bucket_name}/{object_name}, calling status update API")
-            status_updated = update_document_status(object_name, "COMPLETE")
-        else:
-            logger.error(f"ES chunk indexing failed for {bucket_name}/{object_name}: {index_result}")
-            status_updated = update_document_status(object_name, "FAILED")
-        
+
+        writes = get_search_stores().index_document(document, chunks)
+        status_updated = update_document_status(object_name, "COMPLETE")
+
         result = {
             "success": True,
             "task_id": task_id,
             "bucket_name": bucket_name,
             "object_name": object_name,
-            "file_size": len(file_content),
+            "file_size": file_size,
             "chunks_created": len(chunks),
-            "elasticsearch_indexed": index_result["success"] > 0,
-            "elasticsearch_results": index_result,
-            "full_document_indexed": full_doc_result["success"],
-            "full_document_results": full_doc_result,
-            "document_title": title,
+            "search_writes": writes,
+            "document_title": document.title,
             "status_updated": status_updated,
-            "chunking_stats": chunking_stats,
+            "chunking_stats": chunking_service.get_chunking_stats(chunks),
             "message": f"Successfully processed document: {bucket_name}/{object_name}"
         }
-        
         logger.info(f"Completed document processing task {task_id}: {result}")
         return result
-        
+
     except Exception as e:
         error_msg = f"Error processing document {bucket_name}/{object_name}: {str(e)}"
         logger.error(error_msg, exc_info=True)
@@ -366,13 +289,17 @@ def health_check_handler(task: Task) -> Dict[str, Any]:
         es_stats = elasticsearch_client.get_index_stats()
         es_healthy = "error" not in es_stats
         
-        return {
+        result = {
             "success": True,
             "storage_healthy": storage_healthy,
             "elasticsearch_healthy": es_healthy,
             "queue_healthy": True,
             "message": "Health check completed"
         }
+        postgres = get_search_stores().postgres
+        if postgres is not None:
+            result["postgres_healthy"] = "error" not in postgres.stats()
+        return result
         
     except Exception as e:
         logger.error(f"Health check failed: {e}")

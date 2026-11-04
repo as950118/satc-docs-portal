@@ -1,0 +1,1117 @@
+{
+ "search_backend": "es",
+ "observations": {
+  "/api/v1/search-documents": {
+   "fields": {
+    "title": {
+     "max_fragments": 1,
+     "max_len_without_em": 16,
+     "tags": [
+      "</em>",
+      "<em>"
+     ]
+    },
+    "content": {
+     "max_fragments": 3,
+     "max_len_without_em": 153,
+     "tags": [
+      "</b>",
+      "</em>",
+      "</script>",
+      "<b>",
+      "<em>",
+      "<script>"
+     ]
+    }
+   },
+   "results_with_empty_highlight": 0
+  },
+  "/api/v1/search": {
+   "fields": {
+    "content": {
+     "max_fragments": 5,
+     "max_len_without_em": 103,
+     "tags": [
+      "</b>",
+      "</em>",
+      "</script>",
+      "<b>",
+      "<em>",
+      "<script>"
+     ]
+    },
+    "title": {
+     "max_fragments": 1,
+     "max_len_without_em": 11,
+     "tags": [
+      "</em>",
+      "<em>"
+     ]
+    }
+   },
+   "results_with_empty_highlight": 0
+  },
+  "html_in_content_fragments": "raw",
+  "zero_hit_max_score": {
+   "documents no hit": null,
+   "chunks no hit": null
+  },
+  "title_only_highlight_keys": [
+   [
+    "title"
+   ]
+  ]
+ },
+ "responses": {
+  "documents 코딩 스타일": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "코딩 스타일"
+   },
+   "status": 200,
+   "body": {
+    "query": "코딩 스타일",
+    "total_results": 3,
+    "returned_results": 3,
+    "max_score": 35.552227,
+    "results": [
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000002",
+      "title": "괄호와 들여쓰기 스타일",
+      "score": 35.552227,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000002/괄호와 들여쓰기 스타일.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000002",
+       "document_title": "괄호와 들여쓰기 스타일",
+       "file_size": 256,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "괄호와 들여쓰기 <em>스타일</em>"
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000022",
+      "title": "보안 코딩 가이드",
+      "score": 35.552227,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000022/보안 코딩 가이드.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000022",
+       "document_title": "보안 코딩 가이드",
+       "file_size": 297,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "보안 <em>코딩</em> 가이드"
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000039",
+      "title": "프런트엔드 컴포넌트 규칙",
+      "score": 4.8651004,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000039/프런트엔드 컴포넌트 규칙.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000039",
+       "document_title": "프런트엔드 컴포넌트 규칙",
+       "file_size": 317,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "<em>스타일은</em> 컴포넌트 범위로 한정한다. 접근성을 위해 의미 있는 태그와 대체 텍스트를 사용한다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents 코딩 스타일을": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "코딩 스타일을"
+   },
+   "status": 200,
+   "body": {
+    "query": "코딩 스타일을",
+    "total_results": 3,
+    "returned_results": 3,
+    "max_score": 35.552227,
+    "results": [
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000022",
+      "title": "보안 코딩 가이드",
+      "score": 35.552227,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000022/보안 코딩 가이드.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000022",
+       "document_title": "보안 코딩 가이드",
+       "file_size": 297,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "보안 <em>코딩</em> 가이드"
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000002",
+      "title": "괄호와 들여쓰기 스타일",
+      "score": 23.701485,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000002/괄호와 들여쓰기 스타일.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000002",
+       "document_title": "괄호와 들여쓰기 스타일",
+       "file_size": 256,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "괄호와 들여쓰기 <em>스타일</em>"
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000039",
+      "title": "프런트엔드 컴포넌트 규칙",
+      "score": 5.4732385,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000039/프런트엔드 컴포넌트 규칙.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000039",
+       "document_title": "프런트엔드 컴포넌트 규칙",
+       "file_size": 317,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "<em>스타일은</em> 컴포넌트 범위로 한정한다. 접근성을 위해 의미 있는 태그와 대체 텍스트를 사용한다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents 발췌": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "발췌"
+   },
+   "status": 200,
+   "body": {
+    "query": "발췌",
+    "total_results": 2,
+    "returned_results": 2,
+    "max_score": 7.19209,
+    "results": [
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+      "title": "검색 품질 점검 기록",
+      "score": 7.19209,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "# 검색 품질 점검 기록\n\n이 문서는 검색 <em>발췌</em> 동작을 점검하려고 만든 더미 기록이다. 발췌는 본문 일부를 잘라 일치한 단어를 강조한다. 발췌가 너무 길면 화면이 넘치므로 길이를 제한한다.\n\n## 첫 번째 점검\n\n첫 점검에서는 짧은 질의로 발췌를 확인했다.",
+        "한 문서에서 같은 단어가 여러 번 나오면 <em>발췌</em> 조각도 여러 개가 된다. 조각 수가 많으면 읽기 어렵다는 의견이 있었다. 그래서 조각 수에 상한을 둔다.\n\n## 두 번째 점검\n\n두 번째 점검은 조사가 붙은 질의를 다뤘다.",
+        "<em>발췌</em> 안의 영문도 원래 표기를 유지한다.\n\n## 남은 일\n\n남은 일은 실제 문서로 <em>발췌</em> 품질을 다시 보는 것이다. 이 기록의 문장은 모두 더미이며 사내 문서가 아니다. 점검 결과는 다음 회의에서 공유하고 <em>발췌</em> 규칙 변경이 필요하면 따로 정한다."
+       ]
+      }
+     },
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000001",
+      "title": "HTML 이스케이프 확인",
+      "score": 6.0211773,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000001",
+       "document_title": "HTML 이스케이프 확인",
+       "file_size": 320,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "이스케이프 여부는 <em>발췌</em> 문자열에서 바로 보인다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents 점검": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "점검"
+   },
+   "status": 200,
+   "body": {
+    "query": "점검",
+    "total_results": 2,
+    "returned_results": 2,
+    "max_score": 30.430367,
+    "results": [
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000005",
+      "title": "정기 점검 일지",
+      "score": 30.430367,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000005/정기 점검 일지.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000005",
+       "document_title": "정기 점검 일지",
+       "file_size": 1506,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "정기 <em>점검</em> 일지"
+       ],
+       "content": [
+        "# 정기 <em>점검</em> 일지\n\n1주차 <em>점검</em> 대상은 서버 디스크 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 2주차 <em>점검</em> 대상은 백업 복구 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 3주차 <em>점검</em> 대상은 인증서 만료 항목이었고 남은 부분은 다음 주에 이어서",
+        "확인하기로 했다. 4주차 <em>점검</em> 대상은 로그 보관 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 5주차 <em>점검</em> 대상은 알람 임계값 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 6주차 <em>점검</em> 대상은 배포 스크립트 항목이었고 남은 부분은 다음 주에 이어서",
+        "확인하기로 했다. 7주차 <em>점검</em> 대상은 의존성 버전 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 8주차 <em>점검</em> 대상은 접근 권한 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 9주차 <em>점검</em> 대상은 모니터링 대시보드 항목이었고 남은 부분은 다음 주에"
+       ]
+      }
+     },
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+      "title": "검색 품질 점검 기록",
+      "score": 26.791088,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "검색 품질 <em>점검</em> 기록"
+       ],
+       "content": [
+        "# 검색 품질 <em>점검</em> 기록\n\n이 문서는 검색 발췌 동작을 점검하려고 만든 더미 기록이다. 발췌는 본문 일부를 잘라 일치한 단어를 강조한다. 발췌가 너무 길면 화면이 넘치므로 길이를 제한한다.\n\n## 첫 번째 <em>점검</em>\n\n첫 점검에서는 짧은 질의로 발췌를 확인했다.",
+        "이렇게 얻은 위치로 발췌를 만든다.\n\n## 세 번째 <em>점검</em>\n\n세 번째 점검은 영문 대소문자를 다뤘다. Docker 와 DOCKER 와 docker 는 같은 단어로 보고 강조한다. 컨테이너 이미지 이름은 보통 소문자로 쓴다.",
+        "<em>점검</em> 결과는 다음 회의에서 공유하고 발췌 규칙 변경이 필요하면 따로 정한다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents 온보딩 (title only)": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "온보딩"
+   },
+   "status": 200,
+   "body": {
+    "query": "온보딩",
+    "total_results": 1,
+    "returned_results": 1,
+    "max_score": 41.140743,
+    "results": [
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000003",
+      "title": "온보딩 체크리스트",
+      "score": 41.140743,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000003/온보딩 체크리스트.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000003",
+       "document_title": "온보딩 체크리스트",
+       "file_size": 251,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "<em>온보딩</em> 체크리스트"
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents 빈 본문 (empty body)": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "빈 본문"
+   },
+   "status": 200,
+   "body": {
+    "query": "빈 본문",
+    "total_results": 5,
+    "returned_results": 5,
+    "max_score": 71.104454,
+    "results": [
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000002",
+      "title": "빈 본문 안내",
+      "score": 71.104454,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000002/빈 본문 안내.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000002",
+       "document_title": "빈 본문 안내",
+       "file_size": 0,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "<em>빈</em> <em>본문</em> 안내"
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000001",
+      "title": "패키지와 임포트 규칙",
+      "score": 6.4764457,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000001/패키지와 임포트 규칙.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000001",
+       "document_title": "패키지와 임포트 규칙",
+       "file_size": 296,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "와일드카드 임포트는 사용하지 않으며 클래스 단위로 명시한다. static 임포트와 일반 임포트는 <em>빈</em> 줄로 블록을 나눈다. IDE 설정에서 별표 임포트 임계값을 최대로 올려 자동 축약을 막는다."
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000011",
+      "title": "예외 처리 방침",
+      "score": 6.240519,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000011/예외 처리 방침.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000011",
+       "document_title": "예외 처리 방침",
+       "file_size": 319,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "예외를 삼키고 <em>빈</em> catch 블록을 두는 것은 금지한다. 원인 예외를 반드시 연결해 로그에 남긴다. 체크 예외는 계층 경계에서 런타임 예외로 감싼다."
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000043",
+      "title": "검색 엔진 연동 지침",
+      "score": 6.0925574,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000043/검색 엔진 연동 지침.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000043",
+       "document_title": "검색 엔진 연동 지침",
+       "file_size": 319,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "검색 결과 강조 표시는 <em>본문</em> 일부를 잘라 보여준다. 색인 실패 문서는 상태 값으로 구분한다."
+       ]
+      }
+     },
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+      "title": "검색 품질 점검 기록",
+      "score": 2.539753,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "발췌는 <em>본문</em> 일부를 잘라 일치한 단어를 강조한다. 발췌가 너무 길면 화면이 넘치므로 길이를 제한한다.\n\n## 첫 번째 점검\n\n첫 점검에서는 짧은 질의로 발췌를 확인했다. 한 문서에서 같은 단어가 여러 번 나오면 발췌 조각도 여러 개가 된다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents 굵은 글씨 (html)": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "굵은 글씨"
+   },
+   "status": 200,
+   "body": {
+    "query": "굵은 글씨",
+    "total_results": 1,
+    "returned_results": 1,
+    "max_score": 14.082306,
+    "results": [
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000001",
+      "title": "HTML 이스케이프 확인",
+      "score": 14.082306,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000001",
+       "document_title": "HTML 이스케이프 확인",
+       "file_size": 320,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "# HTML 이스케이프 확인\n\n본문에 <b><em>굵은</em> <em>글씨</em></b> 태그와 <script>alert('x')</script> 스크립트, 그리고 A & B 기호와 \"따옴표\"가 들어 있다. 검색 발췌가 태그를 그대로 내보내는지 확인하는 더미 문서다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents docker (case)": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "docker"
+   },
+   "status": 200,
+   "body": {
+    "query": "docker",
+    "total_results": 2,
+    "returned_results": 2,
+    "max_score": 31.300407,
+    "results": [
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000027",
+      "title": "Docker 이미지 빌드 규칙",
+      "score": 31.300407,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000027/Docker 이미지 빌드 규칙.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000027",
+       "document_title": "Docker 이미지 빌드 규칙",
+       "file_size": 295,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "<em>Docker</em> 이미지 빌드 규칙"
+       ]
+      }
+     },
+     {
+      "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+      "title": "검색 품질 점검 기록",
+      "score": 6.4432764,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "<em>Docker</em> 와 <em>DOCKER</em> 와 <em>docker</em> 는 같은 단어로 보고 강조한다. 컨테이너 이미지 이름은 보통 소문자로 쓴다. 발췌 안의 영문도 원래 표기를 유지한다.\n\n## 남은 일\n\n남은 일은 실제 문서로 발췌 품질을 다시 보는 것이다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents no hit": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "zzqxj없는말"
+   },
+   "status": 200,
+   "body": {
+    "query": "zzqxj없는말",
+    "total_results": 0,
+    "returned_results": 0,
+    "max_score": null,
+    "results": []
+   }
+  },
+  "documents 트랜잭션 size 3": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "트랜잭션",
+    "size": 3
+   },
+   "status": 200,
+   "body": {
+    "query": "트랜잭션",
+    "total_results": 3,
+    "returned_results": 3,
+    "max_score": 41.140743,
+    "results": [
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000014",
+      "title": "트랜잭션 관리",
+      "score": 41.140743,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000014/트랜잭션 관리.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000014",
+       "document_title": "트랜잭션 관리",
+       "file_size": 319,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "<em>트랜잭션</em> 관리"
+       ],
+       "content": [
+        "<em>트랜잭션은</em> 서비스 계층에서 시작하며 컨트롤러에는 선언하지 않는다. 조회 전용 메서드에는 readOnly 옵션을 지정한다. 같은 클래스 내부 호출에서는 프록시가 적용되지 않으므로 주의한다. 롤백 대상 예외를 명시해 체크 예외 누락을 막는다."
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000008",
+      "title": "코드 리뷰 체크리스트",
+      "score": 7.5735426,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000008/코드 리뷰 체크리스트.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000008",
+       "document_title": "코드 리뷰 체크리스트",
+       "file_size": 293,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "리뷰어는 네이밍, 예외 처리, <em>트랜잭션</em> 경계, 테스트 누락을 확인한다. 리뷰 의견은 사람이 아니라 코드를 대상으로 작성한다. 지적 사항은 필수와 제안으로 구분해 표시한다. 승인 이후 추가된 커밋은 다시 리뷰를 받는다."
+       ]
+      }
+     },
+     {
+      "document_id": "dddddddd-0000-4000-8000-000000000025",
+      "title": "캐시 사용 지침",
+      "score": 5.9033365,
+      "metadata": {
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/dddddddd-0000-4000-8000-000000000025/캐시 사용 지침.md",
+       "document_id": "dddddddd-0000-4000-8000-000000000025",
+       "document_title": "캐시 사용 지침",
+       "file_size": 260,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "캐시 무효화 시점은 쓰기 <em>트랜잭션이</em> 커밋된 이후로 맞춘다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "documents 브랜치 from 1 size 2": {
+   "path": "/api/v1/search-documents",
+   "params": {
+    "q": "브랜치",
+    "from": 1,
+    "size": 2
+   },
+   "status": 200,
+   "body": {
+    "query": "브랜치",
+    "total_results": 1,
+    "returned_results": 0,
+    "max_score": 41.140743,
+    "results": []
+   }
+  },
+  "chunks 발췌": {
+   "path": "/api/v1/search",
+   "params": {
+    "q": "발췌"
+   },
+   "status": 200,
+   "body": {
+    "query": "발췌",
+    "total_results": 4,
+    "returned_results": 4,
+    "max_score": 7.0888615,
+    "results": [
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_a66ae546_0003",
+      "score": 7.0888615,
+      "content": "남은 일은 실제 문서로 발췌 품질을 다시 보는 것이다. 이 기록의 문장은 모두 더미이며 사내 문서가 아니다. 점검 결과는 다음 회의에서 공유하고 발췌 규칙 변경이 필요하면 따로 정한다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 3,
+       "chunk_type": "markdown_header",
+       "content_length": 103,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "남은 일",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "남은 일은 실제 문서로 <em>발췌</em> 품질을 다시 보는 것이다. 이 기록의 문장은 모두 더미이며 사내 문서가 아니다.",
+        "점검 결과는 다음 회의에서 공유하고 <em>발췌</em> 규칙 변경이 필요하면 따로 정한다."
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_5f1febaf_0002",
+      "score": 5.2446227,
+      "content": "세 번째 점검은 영문 대소문자를 다뤘다. Docker 와 DOCKER 와 docker 는 같은 단어로 보고 강조한다. 컨테이너 이미지 이름은 보통 소문자로 쓴다. 발췌 안의 영문도 원래 표기를 유지한다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 2,
+       "chunk_type": "markdown_header",
+       "content_length": 113,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "세 번째 점검",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "<em>발췌</em> 안의 영문도 원래 표기를 유지한다."
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_47e303c3_0000",
+      "score": 5.1073036,
+      "content": "첫 점검에서는 짧은 질의로 발췌를 확인했다. 한 문서에서 같은 단어가 여러 번 나오면 발췌 조각도 여러 개가 된다. 조각 수가 많으면 읽기 어렵다는 의견이 있었다. 그래서 조각 수에 상한을 둔다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 0,
+       "chunk_type": "markdown_header",
+       "content_length": 109,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "첫 번째 점검",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "한 문서에서 같은 단어가 여러 번 나오면 <em>발췌</em> 조각도 여러 개가 된다. 조각 수가 많으면 읽기 어렵다는 의견이 있었다. 그래서 조각 수에 상한을 둔다."
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md_b8ce83ab_0000",
+      "score": 4.914297,
+      "content": "본문에 <b>굵은 글씨</b> 태그와 <script>alert('x')</script> 스크립트, 그리고 A & B 기호와 \"따옴표\"가 들어 있다. 검색 발췌가 태그를 그대로 내보내는지 확인하는 더미 문서다. 이스케이프 여부는 발췌 문자열에서 바로 보인다.",
+      "title": "HTML 이스케이프 확인",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md",
+       "chunk_index": 0,
+       "chunk_type": "markdown_header",
+       "content_length": 143,
+       "Header 1": "HTML 이스케이프 확인",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000001",
+       "document_title": "HTML 이스케이프 확인",
+       "file_size": 320,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "이스케이프 여부는 <em>발췌</em> 문자열에서 바로 보인다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "chunks 발췌 source_file": {
+   "path": "/api/v1/search",
+   "params": {
+    "q": "발췌",
+    "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md"
+   },
+   "status": 200,
+   "body": {
+    "query": "발췌",
+    "total_results": 3,
+    "returned_results": 3,
+    "max_score": 7.0888615,
+    "results": [
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_a66ae546_0003",
+      "score": 7.0888615,
+      "content": "남은 일은 실제 문서로 발췌 품질을 다시 보는 것이다. 이 기록의 문장은 모두 더미이며 사내 문서가 아니다. 점검 결과는 다음 회의에서 공유하고 발췌 규칙 변경이 필요하면 따로 정한다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 3,
+       "chunk_type": "markdown_header",
+       "content_length": 103,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "남은 일",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "남은 일은 실제 문서로 <em>발췌</em> 품질을 다시 보는 것이다. 이 기록의 문장은 모두 더미이며 사내 문서가 아니다.",
+        "점검 결과는 다음 회의에서 공유하고 <em>발췌</em> 규칙 변경이 필요하면 따로 정한다."
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_5f1febaf_0002",
+      "score": 5.2446227,
+      "content": "세 번째 점검은 영문 대소문자를 다뤘다. Docker 와 DOCKER 와 docker 는 같은 단어로 보고 강조한다. 컨테이너 이미지 이름은 보통 소문자로 쓴다. 발췌 안의 영문도 원래 표기를 유지한다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 2,
+       "chunk_type": "markdown_header",
+       "content_length": 113,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "세 번째 점검",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "<em>발췌</em> 안의 영문도 원래 표기를 유지한다."
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_47e303c3_0000",
+      "score": 5.1073036,
+      "content": "첫 점검에서는 짧은 질의로 발췌를 확인했다. 한 문서에서 같은 단어가 여러 번 나오면 발췌 조각도 여러 개가 된다. 조각 수가 많으면 읽기 어렵다는 의견이 있었다. 그래서 조각 수에 상한을 둔다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 0,
+       "chunk_type": "markdown_header",
+       "content_length": 109,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "첫 번째 점검",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "한 문서에서 같은 단어가 여러 번 나오면 <em>발췌</em> 조각도 여러 개가 된다. 조각 수가 많으면 읽기 어렵다는 의견이 있었다. 그래서 조각 수에 상한을 둔다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "chunks 점검 (many matches in one chunk)": {
+   "path": "/api/v1/search",
+   "params": {
+    "q": "점검"
+   },
+   "status": 200,
+   "body": {
+    "query": "점검",
+    "total_results": 5,
+    "returned_results": 5,
+    "max_score": 9.797035,
+    "results": [
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000005/정기 점검 일지.md_72683d1a_0000",
+      "score": 9.797035,
+      "content": "1주차 점검 대상은 서버 디스크 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 2주차 점검 대상은 백업 복구 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 3주차 점검 대상은 인증서 만료 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 4주차 점검 대상은 로그 보관 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 5주차 점검 대상은 알람 임계값 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 6주차 점검 대상은 배포 스크립트 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 7주차 점검 대상은 의존성 버전 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 8주차 점검 대상은 접근 권한 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 9주차 점검 대상은 모니터링 대시보드 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 10주차 점검 대상은 장애 연락망 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 11주차 점검 대상은 비밀 값 교체 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 12주차 점검 대상은 데이터 보존 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다.",
+      "title": "정기 점검 일지",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000005/정기 점검 일지.md",
+       "chunk_index": 0,
+       "chunk_type": "markdown_header",
+       "content_length": 616,
+       "Header 1": "정기 점검 일지",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000005/정기 점검 일지.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000005",
+       "document_title": "정기 점검 일지",
+       "file_size": 1506,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "정기 <em>점검</em> 일지"
+       ],
+       "content": [
+        "1주차 <em>점검</em> 대상은 서버 디스크 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 2주차 <em>점검</em> 대상은 백업 복구 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다.",
+        "3주차 <em>점검</em> 대상은 인증서 만료 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 4주차 <em>점검</em> 대상은 로그 보관 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다.",
+        "5주차 <em>점검</em> 대상은 알람 임계값 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 6주차 <em>점검</em> 대상은 배포 스크립트 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다",
+        ". 7주차 <em>점검</em> 대상은 의존성 버전 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 8주차 <em>점검</em> 대상은 접근 권한 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다",
+        ". 9주차 <em>점검</em> 대상은 모니터링 대시보드 항목이었고 남은 부분은 다음 주에 이어서 확인하기로 했다. 10주차 <em>점검</em> 대상은 장애 연락망 항목이었고 남은 부분은 다음 주에 이어서 확인하기로"
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_a66ae546_0003",
+      "score": 6.4852,
+      "content": "남은 일은 실제 문서로 발췌 품질을 다시 보는 것이다. 이 기록의 문장은 모두 더미이며 사내 문서가 아니다. 점검 결과는 다음 회의에서 공유하고 발췌 규칙 변경이 필요하면 따로 정한다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 3,
+       "chunk_type": "markdown_header",
+       "content_length": 103,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "남은 일",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "검색 품질 <em>점검</em> 기록"
+       ],
+       "content": [
+        "<em>점검</em> 결과는 다음 회의에서 공유하고 발췌 규칙 변경이 필요하면 따로 정한다."
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_47e303c3_0000",
+      "score": 6.1022635,
+      "content": "첫 점검에서는 짧은 질의로 발췌를 확인했다. 한 문서에서 같은 단어가 여러 번 나오면 발췌 조각도 여러 개가 된다. 조각 수가 많으면 읽기 어렵다는 의견이 있었다. 그래서 조각 수에 상한을 둔다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 0,
+       "chunk_type": "markdown_header",
+       "content_length": 109,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "첫 번째 점검",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "검색 품질 <em>점검</em> 기록"
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_b8db026e_0001",
+      "score": 6.1022635,
+      "content": "두 번째 점검은 조사가 붙은 질의를 다뤘다. 질의가 '발췌를'처럼 조사로 끝나면 본문에서 그대로 찾기 어렵다. 끝 글자를 줄여 '발췌'로 다시 찾으면 일치 위치를 얻는다. 이렇게 얻은 위치로 발췌를 만든다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 1,
+       "chunk_type": "markdown_header",
+       "content_length": 115,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "두 번째 점검",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "검색 품질 <em>점검</em> 기록"
+       ]
+      }
+     },
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md_5f1febaf_0002",
+      "score": 6.1022635,
+      "content": "세 번째 점검은 영문 대소문자를 다뤘다. Docker 와 DOCKER 와 docker 는 같은 단어로 보고 강조한다. 컨테이너 이미지 이름은 보통 소문자로 쓴다. 발췌 안의 영문도 원래 표기를 유지한다.",
+      "title": "검색 품질 점검 기록",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "chunk_index": 2,
+       "chunk_type": "markdown_header",
+       "content_length": 113,
+       "Header 1": "검색 품질 점검 기록",
+       "Header 2": "세 번째 점검",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+       "document_title": "검색 품질 점검 기록",
+       "file_size": 1364,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "title": [
+        "검색 품질 <em>점검</em> 기록"
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "chunks 굵은 글씨 (html)": {
+   "path": "/api/v1/search",
+   "params": {
+    "q": "굵은 글씨"
+   },
+   "status": 200,
+   "body": {
+    "query": "굵은 글씨",
+    "total_results": 1,
+    "returned_results": 1,
+    "max_score": 14.173954,
+    "results": [
+     {
+      "chunk_id": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md_b8ce83ab_0000",
+      "score": 14.173954,
+      "content": "본문에 <b>굵은 글씨</b> 태그와 <script>alert('x')</script> 스크립트, 그리고 A & B 기호와 \"따옴표\"가 들어 있다. 검색 발췌가 태그를 그대로 내보내는지 확인하는 더미 문서다. 이스케이프 여부는 발췌 문자열에서 바로 보인다.",
+      "title": "HTML 이스케이프 확인",
+      "metadata": {
+       "source_file": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md",
+       "chunk_index": 0,
+       "chunk_type": "markdown_header",
+       "content_length": 143,
+       "Header 1": "HTML 이스케이프 확인",
+       "bucket_name": "dummy-docs",
+       "object_name": "documents/eeeeeeee-0000-4000-8000-000000000001/HTML 이스케이프 확인.md",
+       "document_id": "eeeeeeee-0000-4000-8000-000000000001",
+       "document_title": "HTML 이스케이프 확인",
+       "file_size": 320,
+       "last_modified": "2026-11-04T04:08:11+00:00",
+       "content_type": "text/markdown"
+      },
+      "highlight": {
+       "content": [
+        "본문에 <b><em>굵은</em> <em>글씨</em></b> 태그와 <script>alert('x')</script> 스크립트, 그리고 A & B 기호와 \"따옴표\"가 들어 있다."
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "chunks no hit": {
+   "path": "/api/v1/search",
+   "params": {
+    "q": "zzqxj없는말"
+   },
+   "status": 200,
+   "body": {
+    "query": "zzqxj없는말",
+    "total_results": 0,
+    "returned_results": 0,
+    "max_score": null,
+    "results": []
+   }
+  },
+  "document found": {
+   "path": "/api/v1/documents/{id}",
+   "params": {},
+   "status": 200,
+   "body": {
+    "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+    "title": "검색 품질 점검 기록",
+    "content": "# 검색 품질 점검 기록\n\n이 문서는 검색 발췌 동작을 점검하려고 만든 더미 기록이다. 발췌는 본문 일부를 잘라 일치한 단어를 강조한다. 발췌가 너무 길면 화면이 넘치므로 길이를 제한한다.\n\n## 첫 번째 점검\n\n첫 점검에서는 짧은 질의로 발췌를 확인했다. 한 문서에서 같은 단어가 여러 번 나오면 발췌 조각도 여러 개가 된다. 조각 수가 많으면 읽기 어렵다는 의견이 있었다. 그래서 조각 수에 상한을 둔다.\n\n## 두 번째 점검\n\n두 번째 점검은 조사가 붙은 질의를 다뤘다. 질의가 '발췌를'처럼 조사로 끝나면 본문에서 그대로 찾기 어렵다. 끝 글자를 줄여 '발췌'로 다시 찾으면 일치 위치를 얻는다. 이렇게 얻은 위치로 발췌를 만든다.\n\n## 세 번째 점검\n\n세 번째 점검은 영문 대소문자를 다뤘다. Docker 와 DOCKER 와 docker 는 같은 단어로 보고 강조한다. 컨테이너 이미지 이름은 보통 소문자로 쓴다. 발췌 안의 영문도 원래 표기를 유지한다.\n\n## 남은 일\n\n남은 일은 실제 문서로 발췌 품질을 다시 보는 것이다. 이 기록의 문장은 모두 더미이며 사내 문서가 아니다. 점검 결과는 다음 회의에서 공유하고 발췌 규칙 변경이 필요하면 따로 정한다.",
+    "metadata": {
+     "bucket_name": "dummy-docs",
+     "object_name": "documents/eeeeeeee-0000-4000-8000-000000000004/검색 품질 점검 기록.md",
+     "document_id": "eeeeeeee-0000-4000-8000-000000000004",
+     "document_title": "검색 품질 점검 기록",
+     "file_size": 1364,
+     "last_modified": "2026-11-04T04:08:11+00:00",
+     "content_type": "text/markdown"
+    },
+    "created_at": "2026-11-04T04:08:12.568941",
+    "updated_at": "2026-11-04T04:08:12.568941"
+   }
+  },
+  "document missing": {
+   "path": "/api/v1/documents/{id}",
+   "params": {},
+   "status": 404,
+   "body": {
+    "detail": "문서를 찾을 수 없습니다: ffffffff-0000-4000-8000-000000000000"
+   }
+  }
+ }
+}

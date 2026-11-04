@@ -10,6 +10,9 @@ boto3==1.43.123
 
 # Search engine client
 elasticsearch==8.11.0
+psycopg==3.2.13
+psycopg-binary==3.2.13
+psycopg-pool==3.2.6
 
 # Text processing and chunking
 langchain-text-splitters==0.0.1

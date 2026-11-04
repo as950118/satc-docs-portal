@@ -136,10 +136,21 @@ services:
       - MIN_CHUNK_LENGTH=${MIN_CHUNK_LENGTH:-100}
       - BACKEND_API_HOST=backend
       - BACKEND_API_PORT=8080
+      # 검색 저장소 전환 단계는 indexing/app/search/stores.py 표를 따른다. 기본값은 ES만 쓰고 PostgreSQL에 접속하지 않는다
+      - SEARCH_BACKEND=${SEARCH_BACKEND:-es}
+      - SEARCH_DUAL_WRITE=${SEARCH_DUAL_WRITE:-false}
+      - SEARCH_PG_TEXT_INDEX=${SEARCH_PG_TEXT_INDEX:-pgroonga}
+      - SEARCH_PG_HOST=postgres
+      - SEARCH_PG_PORT=5432
+      - SEARCH_PG_DB=${POSTGRES_DB:-docs}
+      - SEARCH_PG_USER=${POSTGRES_USER:-postgres}
+      - SEARCH_PG_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     ports:
       - "${INDEXING_PORT:-8000}:8000"
     depends_on:
       minio:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - docs-network
