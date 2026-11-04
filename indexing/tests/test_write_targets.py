@@ -90,3 +90,11 @@ def test_clear_all_returns_the_active_result_even_if_the_other_store_fails():
     pg.fail_writes = True
     assert s.clear_all().documents_index == "es_documents"
     assert es.documents == {}
+
+
+def test_es_only_stage_never_connects_to_postgres():
+    from app.config import Settings
+    from app.search.stores import build_search_stores
+    settings = Settings(_env_file=None, search_backend="es", search_dual_write=False, search_pg_host="invalid.invalid")
+    built = build_search_stores(settings)
+    assert (built.active.name, built.others, built.postgres) == ("es", (), None)
