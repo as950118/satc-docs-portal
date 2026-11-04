@@ -36,6 +36,7 @@ PGROONGA_QUERY = "(select string_agg(pgroonga_query_escape(t), ' OR ') from unne
 class TextStrategy:
     extension: str
     schema_file: str
+    indexes: tuple
     match: str
     score: str
 
@@ -44,12 +45,15 @@ STRATEGIES = {
     "pgroonga": TextStrategy(
         extension="pgroonga",
         schema_file="schema_pgroonga.sql",
+        indexes=("idx_search_document_pgroonga", "idx_search_chunk_pgroonga"),
         match=f"(t.title &@~ {PGROONGA_QUERY} or t.content &@~ {PGROONGA_QUERY})",
         score="pgroonga_score(t.tableoid, t.ctid)",
     ),
     "trgm": TextStrategy(
         extension="pg_trgm",
         schema_file="schema_trgm.sql",
+        indexes=("idx_search_document_title_trgm", "idx_search_document_content_trgm",
+                 "idx_search_chunk_title_trgm", "idx_search_chunk_content_trgm"),
         match="(%(q)s <%% t.title or %(q)s <%% t.content)",
         score="(3 * word_similarity(%(q)s, t.title) + word_similarity(%(q)s, t.content))",
     ),
@@ -118,6 +122,14 @@ class PgSearchBackend:
             conn.execute((SCHEMA_DIR / "schema.sql").read_text())
             conn.execute((SCHEMA_DIR / self.strategy.schema_file).read_text())
         logger.info(f"search schema ready (text index: {self.text_index})")
+
+    def missing_indexes(self) -> List[str]:
+        """Text indexes of the configured strategy that do not exist. Measuring tools check this instead of
+        running ensure_schema, which would drop the indexes of a service running the other strategy."""
+        with self.pool.connection() as conn:
+            present = {r[0] for r in conn.execute("select indexname from pg_indexes where indexname = any(%s)",
+                                                  (list(self.strategy.indexes),))}
+        return [name for name in self.strategy.indexes if name not in present]
 
     # ---- writes ----
 
