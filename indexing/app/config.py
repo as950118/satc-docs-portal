@@ -67,10 +67,6 @@ class Settings(BaseSettings):
             raise ValueError(f"{info.field_name.upper()} 허용 값: {', '.join(allowed)} (입력: {value!r})")
         return normalized
 
-    @property
-    def uses_postgres(self) -> bool:
-        return self.search_backend == "postgres" or self.search_dual_write
-
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

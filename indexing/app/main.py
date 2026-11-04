@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.api.routes import router
 from app.services.queue_service import InternalQueueService, set_queue_service
+from app.search.stores import build_search_stores, set_search_stores
 
 # Configure logging
 logging.basicConfig(
@@ -61,7 +62,10 @@ async def startup_event():
     logger.info("Document Indexing Server starting up...")
     logger.info(f"MinIO endpoint: {settings.minio_endpoint}")
     logger.info(f"Elasticsearch: {settings.elasticsearch_host}:{settings.elasticsearch_port}")
-    
+    logger.info(f"Search: backend={settings.search_backend}, dual_write={settings.search_dual_write}, "
+                f"pg_text_index={settings.search_pg_text_index}")
+    set_search_stores(build_search_stores(settings))
+
     # Register task handlers
     from app.services.document_processor import process_document_handler, health_check_handler
     queue_service.register_task_handler("process_document", process_document_handler)

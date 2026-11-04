@@ -31,7 +31,6 @@ def test_search_backend_accepts_allowed_values_after_trim_and_lowercase(monkeypa
 def test_defaults_keep_current_deployment_on_es_without_postgres(monkeypatch):
     s = load(monkeypatch)
     assert (s.search_backend, s.search_dual_write, s.search_pg_text_index) == ("es", False, "pgroonga")
-    assert s.uses_postgres is False
 
 
 @pytest.mark.parametrize("env, allowed", [
@@ -43,11 +42,6 @@ def test_invalid_value_is_rejected_with_allowed_values(monkeypatch, env, allowed
     with pytest.raises(ValidationError) as err:
         load(monkeypatch, **env)
     assert allowed in str(err.value)
-
-
-@pytest.mark.parametrize("backend, dual, uses_pg", [("es", "false", False), ("es", "true", True), ("postgres", "true", True), ("postgres", "false", True)])
-def test_postgres_is_used_only_when_it_is_searched_or_written(monkeypatch, backend, dual, uses_pg):
-    assert load(monkeypatch, SEARCH_BACKEND=backend, SEARCH_DUAL_WRITE=dual).uses_postgres is uses_pg
 
 
 def test_service_refuses_to_start_with_invalid_backend():
