@@ -81,7 +81,7 @@ def main():
             r = client.get(path, params=params)
             responses[name] = {"path": path.split("/documents/")[0] + "/documents/{id}" if "/documents/" in path else path,
                                "params": params, "status": r.status_code, "body": r.json()}
-    snapshot = {"search_backend": settings.search_backend if hasattr(settings, "search_backend") else "es",
+    snapshot = {"search_backend": settings.search_backend,
                 "observations": observe(responses), "responses": responses}
     with open(args.out, "w") as f:
         json.dump(snapshot, f, ensure_ascii=False, indent=1)
