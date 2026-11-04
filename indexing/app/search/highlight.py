@@ -23,7 +23,10 @@ def query_terms(query: str) -> List[str]:
 
 def term_spans(text: str, term: str) -> List[Span]:
     """Case-insensitive occurrences of the term. A term with a particle such as "스타일을" that is not in the
-    text is retried with one fewer trailing character until a match or a two-character prefix remains."""
+    text is retried with one fewer trailing character until a match or a two-character prefix remains.
+    A one-character term matches only as a whole word, or it would mark that character inside every word."""
+    if len(term) == 1:
+        return [m.span() for m in re.finditer(rf"(?<!\w){re.escape(term)}(?!\w)", text, re.IGNORECASE)]
     needle = term
     while len(needle) >= MIN_NEEDLE:
         spans = [m.span() for m in re.finditer(re.escape(needle), text, re.IGNORECASE)]

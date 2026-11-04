@@ -65,8 +65,9 @@ def test_empty_body_gives_no_fragment():
     assert excerpts("", "온보딩", 150, 3) == []
 
 
-def test_single_character_terms_are_not_highlighted():
-    assert excerpts("a b c 가 나 다", "가", 150, 3) == []
+def test_single_character_term_is_marked_only_as_a_whole_word():
+    assert [marked(f) for f in excerpts("빈 줄로 나눈다", "빈", 150, 3)] == [["빈"]]
+    assert excerpts("빈칸과 공백", "빈", 150, 3) == []
 
 
 def test_title_is_marked_whole_or_not_at_all():

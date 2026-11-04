@@ -6,6 +6,7 @@ SEARCH_BACKEND decides which store answers, so the same query list snapshots eit
     cd indexing && python -m scripts.search_api_snapshot --out tests/fixtures/es_search_snapshot.json
 """
 import argparse
+import html
 import json
 import re
 
@@ -40,7 +41,8 @@ CALLS = [
 
 
 def strip_em(fragment):
-    return re.sub(r"</?em>", "", fragment)
+    """Original text of a fragment: no <em> tags, and an escaped entity counts as the one character it stands for."""
+    return html.unescape(re.sub(r"</?em>", "", fragment))
 
 
 def observe(responses):
