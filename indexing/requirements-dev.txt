@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest==9.1.1
+# fastapi 0.104 의 TestClient 는 httpx 0.28 에서 없어진 app 인자를 쓴다
+httpx>=0.25,<0.28

@@ -5,23 +5,23 @@ import logging
 import requests
 from typing import Dict, Any, Optional
 from app.services.queue_service import get_queue_service, Task
-from app.services.minio_client import minio_client
+from app.services.object_storage import ObjectNotFound, object_storage
 from app.services.chunking_service import chunking_service
 from app.services.elasticsearch_client import elasticsearch_client
 from app.services.full_document_client import full_document_client
 from app.models.schemas import FullDocument
-from app.config import settings
+from app.config import settings, storage_config
 
 logger = logging.getLogger(__name__)
 
 
 def extract_title_from_object_name(object_name: str) -> str:
     """
-    MinIO objectName에서 제목을 추출
+    objectName에서 제목을 추출 (색인 요청에 title 이 없을 때만 쓴다)
     objectName 형식: documents/UUID/title
     
     Args:
-        object_name: MinIO 객체 이름
+        object_name: 저장소 객체 키
         
     Returns:
         추출된 제목
@@ -76,11 +76,11 @@ def extract_title_from_object_name(object_name: str) -> str:
 
 def extract_document_id_from_object_name(object_name: str) -> str:
     """
-    MinIO objectName에서 UUID(document_id)를 추출
+    objectName에서 UUID(document_id)를 추출
     objectName 형식: documents/UUID/title
     
     Args:
-        object_name: MinIO 객체 이름
+        object_name: 저장소 객체 키
         
     Returns:
         추출된 UUID (document_id)
@@ -129,7 +129,7 @@ def update_document_status(object_name: str, status: str = "COMPLETE") -> bool:
     문서 상태를 업데이트하는 API 호출
     
     Args:
-        object_name: MinIO 객체 이름 (예: documents/uuid_title.md)
+        object_name: 저장소 객체 키 (예: documents/uuid/title.md)
         status: 업데이트할 상태 (기본값: COMPLETE)
         
     Returns:
@@ -190,6 +190,7 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
     data = task.data
     bucket_name = data.get("bucket_name")
     object_name = data.get("object_name")
+    requested_title = data.get("title")
     metadata = data.get("metadata", {})
     
     logger.info(f"Starting document processing task {task_id} for {bucket_name}/{object_name}")
@@ -199,24 +200,15 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
         queue_service = get_queue_service()
         queue_service.update_task_progress(task_id, 10)
         
-        # Step 1: Check if file exists in MinIO
-        if not minio_client.file_exists(bucket_name, object_name):
-            error_msg = f"File not found in MinIO: {bucket_name}/{object_name}"
+        # Step 1-2: Download file from storage
+        try:
+            stored = object_storage.get(bucket_name, object_name)
+        except ObjectNotFound:
+            error_msg = f"File not found in storage: {bucket_name}/{object_name}"
             logger.error(error_msg)
             raise Exception(error_msg)
-        
-        # Update progress: Downloading
+        file_content = stored.data
         queue_service.update_task_progress(task_id, 30)
-        
-        # Step 2: Download file from MinIO
-        file_content = minio_client.download_file(bucket_name, object_name)
-        if file_content is None:
-            error_msg = f"Failed to download file from MinIO: {bucket_name}/{object_name}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
-        
-        # Get file info
-        file_info = minio_client.get_file_info(bucket_name, object_name)
         logger.info(f"Downloaded file {bucket_name}/{object_name}, size: {len(file_content)} bytes")
         
         # Update progress: Converting
@@ -237,8 +229,8 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
         # Update progress: Chunking
         queue_service.update_task_progress(task_id, 70)
         
-        # Step 4: Extract title and document_id from object name
-        title = extract_title_from_object_name(object_name)
+        # Step 4: 백엔드가 보낸 제목을 쓰고, 없으면(예전 백엔드) 키에서 뽑는다. ASCII 키에는 제목이 없다
+        title = requested_title or extract_title_from_object_name(object_name)
         document_id = extract_document_id_from_object_name(object_name)
         
         # Chunk the document
@@ -250,12 +242,11 @@ def process_document_handler(task: Task) -> Dict[str, Any]:
             "document_title": title  # 제목을 메타데이터에 추가
         })
         
-        if file_info:
-            enhanced_metadata.update({
-                "file_size": file_info.get("size"),
-                "last_modified": file_info.get("last_modified").isoformat() if file_info.get("last_modified") else None,
-                "content_type": file_info.get("content_type"),
-            })
+        enhanced_metadata.update({
+            "file_size": len(file_content),
+            "last_modified": stored.last_modified.isoformat() if stored.last_modified else None,
+            "content_type": stored.content_type,
+        })
         
         # Use object_name as the source file path for chunking
         chunks = chunking_service.chunk_document(content_str, object_name, enhanced_metadata)
@@ -366,13 +357,10 @@ def health_check_handler(task: Task) -> Dict[str, Any]:
         Health check result dictionary
     """
     try:
-        # Test MinIO connection (using default bucket)
-        minio_healthy = True
         try:
-            # Try to check if default bucket exists
-            minio_client._ensure_bucket_exists()
+            storage_healthy = object_storage.bucket_exists(storage_config.bucket)
         except Exception:
-            minio_healthy = False
+            storage_healthy = False
         
         # Test Elasticsearch connection
         es_stats = elasticsearch_client.get_index_stats()
@@ -380,7 +368,7 @@ def health_check_handler(task: Task) -> Dict[str, Any]:
         
         return {
             "success": True,
-            "minio_healthy": minio_healthy,
+            "storage_healthy": storage_healthy,
             "elasticsearch_healthy": es_healthy,
             "queue_healthy": True,
             "message": "Health check completed"

@@ -5,8 +5,8 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
-# Object storage client
-minio==7.2.0
+# Object storage client (S3 호환: MinIO, Supabase Storage, Cloudflare R2)
+boto3==1.43.123
 
 # Search engine client
 elasticsearch==8.11.0
@@ -35,13 +35,16 @@ typing-extensions>=4.6.0
 # (These will be resolved during pip download)
 annotated-types
 anyio
+botocore
 certifi
 charset-normalizer
 click
 h11
 httptools
 idna
+jmespath
 python-dateutil
+s3transfer
 six
 sniffio
 starlette
