@@ -15,6 +15,7 @@ from datetime import timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from psycopg import sql
 from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -94,24 +95,31 @@ def _result_feature_id(metadata: Dict[str, Any]) -> Optional[str]:
 class PgSearchBackend:
     name = "postgres"
 
-    def __init__(self, pool: ConnectionPool, text_index: str):
+    def __init__(self, pool: ConnectionPool, text_index: str, schema: str = ""):
         self.pool = pool
         self.text_index = text_index
         self.strategy = STRATEGIES[text_index]
+        self.schema = schema
 
     @classmethod
     def from_settings(cls, settings) -> "PgSearchBackend":
         threshold = str(settings.search_pg_trgm_threshold)
+        schema = settings.search_pg_schema
+        trgm = settings.search_pg_text_index == "trgm"
 
         def configure(conn):
-            conn.execute("select set_config('pg_trgm.word_similarity_threshold', %s, false)", (threshold,))
+            if schema:
+                # Prepended rather than replaced: the extension objects (PGroonga sits in public on Supabase) must resolve.
+                conn.execute("select set_config('search_path', %s || ', ' || current_setting('search_path'), false)",
+                             (schema,))
+            if trgm:
+                conn.execute("select set_config('pg_trgm.word_similarity_threshold', %s, false)", (threshold,))
             conn.commit()
 
         pool = ConnectionPool(cls.conninfo(settings), min_size=1, max_size=settings.queue_max_workers + 2, open=True,
-                              configure=configure if settings.search_pg_text_index == "trgm" else None,
-                              name="search-pg")
+                              configure=configure if schema or trgm else None, name="search-pg")
         pool.wait(timeout=30)
-        return cls(pool, settings.search_pg_text_index)
+        return cls(pool, settings.search_pg_text_index, schema)
 
     @staticmethod
     def conninfo(settings) -> str:
@@ -131,16 +139,25 @@ class PgSearchBackend:
             if not available:
                 raise SearchStoreError(f"SEARCH_PG_TEXT_INDEX={self.text_index} 인데 PostgreSQL 에 {self.strategy.extension} "
                                        f"확장이 없습니다. {FALLBACK_HINT[self.text_index]}")
+            if self.schema:
+                conn.execute(sql.SQL("create schema if not exists {}").format(sql.Identifier(self.schema)))
             conn.execute((SCHEMA_DIR / "schema.sql").read_text())
             conn.execute((SCHEMA_DIR / self.strategy.schema_file).read_text())
-        logger.info(f"search schema ready (text index: {self.text_index})")
+            # Qualified with the tables' schema. An unqualified drop would follow search_path into public and could
+            # remove the indexes of another deployment that shares the database.
+            tables_schema = conn.execute("select current_schema()").fetchone()[0]
+            for other in STRATEGIES.values():
+                if other is not self.strategy:
+                    for index in other.indexes:
+                        conn.execute(sql.SQL("drop index if exists {}").format(sql.Identifier(tables_schema, index)))
+        logger.info(f"search schema ready (text index: {self.text_index}, schema: {self.schema or 'search_path default'})")
 
     def missing_indexes(self) -> List[str]:
         """Text indexes of the configured strategy that do not exist. Measuring tools check this instead of
         running ensure_schema, which would drop the indexes of a service running the other strategy."""
         with self.pool.connection() as conn:
-            present = {r[0] for r in conn.execute("select indexname from pg_indexes where indexname = any(%s)",
-                                                  (list(self.strategy.indexes),))}
+            present = {r[0] for r in conn.execute("select indexname from pg_indexes where schemaname = current_schema() "
+                                                  "and indexname = any(%s)", (list(self.strategy.indexes),))}
         return [name for name in self.strategy.indexes if name not in present]
 
     def index_document(self, document: FullDocument, chunks: List[DocumentChunk]) -> None:
