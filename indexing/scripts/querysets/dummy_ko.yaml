@@ -1,0 +1,268 @@
+# poc49.yaml 에 조사가 붙은 짝 질의 4개를 더한 더미 질의 세트. 같은 pair_id 의 두 질의는 같은 기대 문서를 상위 5위 안에 내야 한다.
+queries:
+- query: 와일드카드 임포트 금지
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000001
+  category: 정확
+  pair_id: null
+- query: 임포트를 줄바꿈하나요
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000001
+  category: 조사
+  pair_id: null
+- query: 들여쓰기는 몇 칸으로 하나
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000002
+  category: 조사
+  pair_id: null
+- query: 중괄호를 생략해도 되는지
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000002
+  category: 어미
+  pair_id: null
+- query: JavaDoc 주석
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000003
+  category: 한영혼용
+  pair_id: null
+- query: 메서드 파라미터 설명 태그
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000003
+  category: 의미
+  pair_id: null
+- query: TODO FIXME 태그
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000004
+  category: 한영혼용
+  pair_id: null
+- query: 브랜치 삭제 시점
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000005
+  - dddddddd-0000-4000-8000-000000000046
+  category: 조사
+  pair_id: null
+- query: feature 브랜치는 어디서 분기하나요
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000005
+  category: 한영혼용
+  pair_id: null
+- query: 커밋 메시지 제목 길이
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000006
+  category: 조사
+  pair_id: null
+- query: 커밋 타입 종류
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000006
+  category: 짧은키워드
+  pair_id: null
+- query: PR 승인 리뷰어 수
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000007
+  category: 한영혼용
+  pair_id: null
+- query: 풀 리퀘스트에 적을 내용
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000007
+  category: 조사
+  pair_id: null
+- query: 코드 리뷰할 때 확인할 것
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000008
+  category: 어미
+  pair_id: null
+- query: REST API URL 동사
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000009
+  category: 한영혼용
+  pair_id: null
+- query: 오류 응답 상태 코드 409
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000010
+  category: 숫자
+  pair_id: null
+- query: 예외를 삼키는 catch
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000011
+  category: 어미
+  pair_id: null
+- query: 로그에 비밀번호 기록
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000013
+  category: 조사
+  pair_id: null
+- query: 트랜잭션
+  expected_doc_ids: &id001
+  - dddddddd-0000-4000-8000-000000000014
+  category: 짧은키워드
+  pair_id: p2
+- query: 트랜잭션을
+  expected_doc_ids: *id001
+  category: 조사
+  pair_id: p2
+- query: readOnly 옵션
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000014
+  category: 한영혼용
+  pair_id: null
+- query: 엔티티 setter
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000015
+  category: 한영혼용
+  pair_id: null
+- query: N+1
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000016
+  category: 짧은키워드
+  pair_id: null
+- query: 페치 조인으로 쿼리 폭증 해결
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000016
+  category: 의미
+  pair_id: null
+- query: 운영 DB에 DDL 직접 실행
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000017
+  category: 한영혼용
+  pair_id: null
+- query: 복합 인덱스 컬럼 순서
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000018
+  category: 조사
+  pair_id: null
+- query: 테스트 이름 짓는 방법
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000019
+  category: 조사
+  pair_id: null
+- query: 테스트 컨테이너
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000020
+  category: 한영혼용
+  pair_id: null
+- query: 커버리지 목표 수치
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000021
+  category: 조사
+  pair_id: null
+- query: SQL 파라미터 바인딩
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000022
+  category: 한영혼용
+  pair_id: null
+- query: Bearer 토큰 헤더
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000023
+  category: 한영혼용
+  pair_id: null
+- query: CORS 와일드카드
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000024
+  category: 한영혼용
+  pair_id: null
+- query: 캐시 만료 시간
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000025
+  category: 조사
+  pair_id: null
+- query: 멱등하게 설계
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000026
+  category: 어미
+  pair_id: null
+- query: 멀티 스테이지 빌드
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000027
+  category: 정확
+  pair_id: null
+- query: 파이프라인이 실패하면 머지
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000028
+  category: 어미
+  pair_id: null
+- query: 롤백
+  expected_doc_ids: &id002
+  - dddddddd-0000-4000-8000-000000000029
+  - dddddddd-0000-4000-8000-000000000017
+  category: 짧은키워드
+  pair_id: p3
+- query: 롤백은
+  expected_doc_ids: *id002
+  category: 조사
+  pair_id: p3
+- query: 장애 보고서에 들어갈 항목
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000030
+  category: 조사
+  pair_id: null
+- query: 알람 임계값
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000031
+  category: 조사
+  pair_id: null
+- query: 상수 이름 규칙
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000032
+  category: 조사
+  pair_id: null
+- query: 롬복
+  expected_doc_ids: &id003
+  - dddddddd-0000-4000-8000-000000000033
+  category: 짧은키워드
+  pair_id: p4
+- query: 롬복을
+  expected_doc_ids: *id003
+  category: 조사
+  pair_id: p4
+- query: 엔티티를 직접 반환하지 말 것
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000034
+  category: 어미
+  pair_id: null
+- query: 커서 방식 페이징
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000036
+  category: 조사
+  pair_id: null
+- query: UTC 시각 저장
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000037
+  category: 한영혼용
+  pair_id: null
+- query: 업로드 파일 확장자 검증
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000038
+  category: 조사
+  pair_id: null
+- query: OpenAPI 스펙 문서화
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000040
+  category: 한영혼용
+  pair_id: null
+- query: 형태소 분석기 한국어 조사 처리
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000043
+  category: 의미
+  pair_id: null
+- query: 릴리즈 노트
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000046
+  category: 짧은키워드
+  pair_id: null
+- query: 하드코딩된 서명 키
+  expected_doc_ids:
+  - dddddddd-0000-4000-8000-000000000023
+  category: 조사
+  pair_id: null
+- query: 코딩 스타일
+  expected_doc_ids: &id004
+  - dddddddd-0000-4000-8000-000000000002
+  - dddddddd-0000-4000-8000-000000000001
+  - dddddddd-0000-4000-8000-000000000032
+  - dddddddd-0000-4000-8000-000000000044
+  category: 모호
+  pair_id: p1
+- query: 코딩 스타일을
+  expected_doc_ids: *id004
+  category: 조사
+  pair_id: p1
