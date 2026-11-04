@@ -102,10 +102,11 @@ def main(argv=None) -> int:
     parser.add_argument("--include-index-only", action="store_true")
     args = parser.parse_args(argv)
 
-    from app.search.pg_store import PgSearchBackend
+    from app.search.pg_store import PgSearchBackend, set_search_path
     pg = PgSearchBackend.from_settings(settings)
     pg.ensure_schema()
     with psycopg.connect(pg.pool.conninfo, autocommit=True) as conn:
+        set_search_path(conn, settings.search_pg_schema)
         if args.dry_run:
             count = conn.execute(f"select count(*) from document d where {ACTIVE_DOCUMENT}").fetchone()[0]
             first = [r[0] for r in conn.execute(f"select d.id from document d where {ACTIVE_DOCUMENT} order by d.id limit 10")]

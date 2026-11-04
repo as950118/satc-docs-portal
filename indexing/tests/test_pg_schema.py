@@ -72,3 +72,27 @@ def test_switching_strategy_in_the_schema_leaves_public_indexes_alone(db):
     with psycopg.connect(db.dsn) as conn:
         assert set(STRATEGIES["trgm"].indexes) <= indexes(conn, "public")
         assert tables(conn, "public") == TABLES and tables(conn, SCHEMA) == TABLES
+
+
+def test_reindex_dry_run_reads_the_portal_rows_of_the_schema(db, monkeypatch, capsys):
+    import json
+
+    from app.config import settings
+    from scripts import reindex_pg
+
+    with psycopg.connect(db.dsn, autocommit=True) as conn:
+        for schema, ids in (("public", ["public-1", "public-2"]), (SCHEMA, ["schema-1"])):
+            conn.execute(f"create schema if not exists {schema}")
+            conn.execute(f"create table {schema}.document (id text primary key, bucket text, file_path text, "
+                         "is_deleted boolean, is_folder boolean)")
+            for doc_id in ids:
+                conn.execute(f"insert into {schema}.document values (%s, 'docs', %s, false, false)", (doc_id, f"{doc_id}.md"))
+    params = conninfo_to_dict(db.dsn)
+    for key, value in {"search_pg_host": params["host"], "search_pg_port": int(params.get("port", 5432)),
+                       "search_pg_db": params["dbname"], "search_pg_user": params["user"],
+                       "search_pg_password": params.get("password", ""), "search_pg_text_index": "pgroonga",
+                       "search_pg_schema": SCHEMA}.items():
+        monkeypatch.setattr(settings, key, value)
+    assert reindex_pg.main(["--dry-run"]) == 0
+    out = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert out["targets"] == 1 and out["first_ids"] == ["schema-1"]

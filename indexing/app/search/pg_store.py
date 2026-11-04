@@ -67,6 +67,13 @@ FALLBACK_HINT = {"pgroonga": "PGroonga 포함 이미지(docker/postgres-pgroonga
                  "trgm": "pg_trgm 확장을 설치하세요."}
 
 
+def set_search_path(conn, schema: str) -> None:
+    """Put SEARCH_PG_SCHEMA first on this session's search_path. The rest is kept, not replaced, so the extension
+    objects still resolve: PGroonga (&@~, pgroonga_score) sits in public on Supabase."""
+    if schema:
+        conn.execute("select set_config('search_path', %s || ', ' || current_setting('search_path'), false)", (schema,))
+
+
 def pgroonga_terms(query: str) -> List[str]:
     terms = []
     for term in query_terms(query):
@@ -108,10 +115,7 @@ class PgSearchBackend:
         trgm = settings.search_pg_text_index == "trgm"
 
         def configure(conn):
-            if schema:
-                # Prepended rather than replaced: the extension objects (PGroonga sits in public on Supabase) must resolve.
-                conn.execute("select set_config('search_path', %s || ', ' || current_setting('search_path'), false)",
-                             (schema,))
+            set_search_path(conn, schema)
             if trgm:
                 conn.execute("select set_config('pg_trgm.word_similarity_threshold', %s, false)", (threshold,))
             conn.commit()

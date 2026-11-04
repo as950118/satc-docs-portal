@@ -77,9 +77,10 @@ def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--no-es", action="store_true", help="skip the ES comparison")
     args = parser.parse_args(argv)
-    from app.search.pg_store import PgSearchBackend
+    from app.search.pg_store import PgSearchBackend, set_search_path
     conninfo = PgSearchBackend.conninfo(settings)
     with psycopg.connect(conninfo, autocommit=True) as conn:
+        set_search_path(conn, settings.search_pg_schema)
         report = check_postgres(conn)
         if not args.no_es:
             report["es"] = check_es(conn, *es_snapshot())
