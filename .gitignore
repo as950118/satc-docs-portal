@@ -44,6 +44,9 @@ Thumbs.db
 
 # Large media files
 *.mp4
+# Login.vue, DocumentViewer.vue 가 참조한다. 없으면 vite build 가 실패한다(빈 파일)
+!frontend/public/code_background.mp4
+!frontend/public/galaxy.mp4
 *.tiff
 *.avi
 *.flv
