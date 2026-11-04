@@ -5,12 +5,16 @@
       python -m pytest tests/test_pg_store.py
 """
 import re
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
+import yaml
 
 from app.models.schemas import DocumentChunk, FullDocument
 from app.search.base import SearchStoreError
+from app.search.pg_store import pgroonga_terms
 from tests.pg_support import CORPUS, SERVERS, TempDatabase, available_strategies, build, make_store
 
 BY_TITLE = {d["title"]: d for d in CORPUS}
@@ -47,6 +51,24 @@ def test_schema_is_idempotent_and_keeps_rows(store):
     store.ensure_schema()
     store.ensure_schema()
     assert counts(store) == before
+    assert store.missing_indexes() == []
+
+
+def test_pgroonga_terms_add_a_stem_only_for_hangul_final_terms():
+    assert pgroonga_terms("코딩 스타일을 readOnly 롬복") == ["코딩", "스타일을", "스타일", "readOnly", "롬복"]
+
+
+def test_query_with_a_particle_finds_the_same_document_as_without(store):
+    load(store)
+    pairs = defaultdict(list)
+    for q in yaml.safe_load((Path(__file__).parents[1] / "scripts/querysets/dummy_ko.yaml").read_text())["queries"]:
+        if q["pair_id"]:
+            pairs[q["pair_id"]].append(q)
+    assert pairs
+    for members in pairs.values():
+        for q in members:
+            top5 = ids(store.search_documents(q["query"], 5, 0))
+            assert set(top5) & set(q["expected_doc_ids"]), q["query"]
 
 
 def test_indexed_document_is_found_by_its_id_and_gone_after_delete(store):

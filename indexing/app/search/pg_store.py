@@ -4,6 +4,9 @@ The text strategy (SEARCH_PG_TEXT_INDEX) decides the match condition and the sco
 - pgroonga: each whitespace-separated query term is escaped with pgroonga_query_escape and the terms are
   joined with OR, matched per column (title &@~ q or content &@~ q). This column-wise form uses the
   pgroonga index; the weighted ARRAY[...] &@~ form fell back to a sequential scan in the PoC.
+  The bigram index matches a term only as a whole, so "스타일을" misses a text with "스타일은". A term of three
+  or more characters that ends in a Hangul syllable therefore also searches its stem without the last
+  character (see pgroonga_terms). On the dummy query sets this took the particle pairs from 0/4 to 4/4.
 - trgm: q <% title or q <% content, ranked by 3 * word_similarity(title) + word_similarity(content).
 """
 import logging
@@ -61,6 +64,15 @@ STRATEGIES = {
 
 FALLBACK_HINT = {"pgroonga": "PGroonga 포함 이미지(docker/postgres-pgroonga)를 쓰거나 SEARCH_PG_TEXT_INDEX=trgm 으로 설정하세요.",
                  "trgm": "pg_trgm 확장을 설치하세요."}
+
+
+def pgroonga_terms(query: str) -> List[str]:
+    terms = []
+    for term in query_terms(query):
+        terms.append(term)
+        if len(term) >= 3 and "\uac00" <= term[-1] <= "\ud7a3":
+            terms.append(term[:-1])
+    return terms
 
 
 def _text(value: str) -> str:
@@ -193,7 +205,7 @@ class PgSearchBackend:
         terms = query_terms(query)
         if not terms:
             return {"total": 0, "max_score": None, "rows": []}
-        params = {"q": query, "terms": terms, "size": size, "offset": offset, **(extra_params or {})}
+        params = {"q": query, "terms": pgroonga_terms(query), "size": size, "offset": offset, **(extra_params or {})}
         where = f"{self.strategy.match}{extra_where}"
         sql = (f"select {columns}, {self.strategy.score} as score, "
                f"count(*) over () as total, max({self.strategy.score}) over () as top "
