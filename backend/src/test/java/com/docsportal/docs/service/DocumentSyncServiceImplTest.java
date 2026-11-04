@@ -21,7 +21,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import com.docsportal.docs.format.request.DocumentSyncRequest;
 import com.docsportal.docs.format.response.DocumentSyncResponse;
@@ -33,35 +32,34 @@ import com.docsportal.docs.persistence.DocumentEvent;
 import com.docsportal.docs.persistence.DocumentEventAction;
 import com.docsportal.docs.repository.DocsRepository;
 import com.docsportal.docs.repository.DocumentEventRepository;
-
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
+import com.docsportal.docs.storage.InMemoryObjectStorage;
 
 class DocumentSyncServiceImplTest {
 
     private static final String KEY = "o/r:backend#java";
     private static final Instant NOW = Instant.parse("2026-09-26T00:00:00Z");
 
-    private MinioClient minioClient;
+    private InMemoryObjectStorage storage;
     private DocsRepository repository;
     private ExternalService externalService;
-    private DocumentService documentService;
     private LiveEventPublisher liveEvents;
     private DocumentEventRepository eventRepository;
     private DocumentSyncServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        minioClient = mock(MinioClient.class);
+        service = service(false);
+    }
+
+    private DocumentSyncServiceImpl service(boolean asciiKeys) {
+        storage = new InMemoryObjectStorage();
         repository = mock(DocsRepository.class);
         externalService = mock(ExternalService.class);
-        documentService = mock(DocumentService.class);
         liveEvents = mock(LiveEventPublisher.class);
         eventRepository = mock(DocumentEventRepository.class);
-        service = new DocumentSyncServiceImpl(minioClient, repository, externalService, documentService, liveEvents, eventRepository,
-            Clock.fixed(NOW, ZoneOffset.UTC));
-        ReflectionTestUtils.setField(service, "bucketName", "docs");
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        return new DocumentSyncServiceImpl(storage, InMemoryObjectStorage.settings(asciiKeys), repository, externalService,
+            liveEvents, eventRepository, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static DocumentSyncRequest request(String content, String commit) {
@@ -103,7 +101,23 @@ class DocumentSyncServiceImplTest {
         assertThat(entity.getSourceCommit()).isEqualTo("c1");
         assertThat(entity.getSyncedAt()).isEqualTo(NOW);
         assertThat(entity.getFilePath()).isEqualTo("documents/" + entity.getId() + "/r-backend-java-openapi.yaml");
-        verify(externalService).notifyDocumentUploaded("docs", entity.getFilePath());
+        assertThat(storage.get(entity.getFilePath())).isEqualTo("paths: {}\n".getBytes(StandardCharsets.UTF_8));
+        verify(externalService).notifyDocumentUploaded("docs", entity.getFilePath(), "r-backend-java-openapi");
+    }
+
+    @Test
+    void asciiKeysStoreUnderTheDocumentIdAndSendTheTitle() {
+        service = service(true);
+        when(repository.findBySourceKey(KEY)).thenReturn(Optional.empty());
+
+        service.sync(request("paths: {}\n", "c1"));
+
+        ArgumentCaptor<DocumentEntity> saved = ArgumentCaptor.forClass(DocumentEntity.class);
+        verify(repository).save(saved.capture());
+        DocumentEntity entity = saved.getValue();
+        assertThat(entity.getFilePath()).isEqualTo("documents/" + entity.getId() + "/" + entity.getId() + ".yaml");
+        assertThat(storage.keys()).containsExactly(entity.getFilePath());
+        verify(externalService).notifyDocumentUploaded("docs", entity.getFilePath(), "r-backend-java-openapi");
     }
 
     @Test
@@ -118,12 +132,12 @@ class DocumentSyncServiceImplTest {
     @Test
     void storageFailureOnCreateLeavesNoEntity() throws Exception {
         when(repository.findBySourceKey(KEY)).thenReturn(Optional.empty());
-        when(minioClient.putObject(any(PutObjectArgs.class))).thenThrow(new RuntimeException("minio down"));
+        storage.failWith(new RuntimeException("storage down"));
 
         assertThatThrownBy(() -> service.sync(request("paths: {}\n", "c1")))
             .isInstanceOf(DocumentSyncStorageException.class);
         verify(repository, never()).save(any());
-        verify(externalService, never()).notifyDocumentUploaded(anyString(), anyString());
+        verify(externalService, never()).notifyDocumentUploaded(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -137,8 +151,8 @@ class DocumentSyncServiceImplTest {
         assertThat(response.getStatus()).isEqualTo(DocumentStatus.COMPLETE);
         assertThat(entity.getSourceCommit()).isEqualTo("c2");
         assertThat(entity.getSyncedAt()).isEqualTo(NOW);
-        verify(minioClient, never()).putObject(any(PutObjectArgs.class));
-        verify(externalService, never()).reindexDocument(anyString(), anyString(), anyString());
+        assertThat(storage.keys()).isEmpty();
+        verify(externalService, never()).reindexDocument(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -156,10 +170,10 @@ class DocumentSyncServiceImplTest {
         assertThat(entity.getFilePath()).isEqualTo(originalPath);
         assertThat(entity.getStatus()).isEqualTo(DocumentStatus.INDEXING);
         assertThat(entity.getContentHash()).isEqualTo(DocumentSyncServiceImpl.sha256Hex("paths:\n  /a: {}\n"));
-        InOrder order = inOrder(minioClient, repository, externalService);
-        order.verify(minioClient).putObject(any(PutObjectArgs.class));
+        assertThat(storage.get(originalPath)).isEqualTo("paths:\n  /a: {}\n".getBytes(StandardCharsets.UTF_8));
+        InOrder order = inOrder(repository, externalService);
         order.verify(repository).save(entity);
-        order.verify(externalService).reindexDocument("docs", entity.getId() + ".yaml", originalPath);
+        order.verify(externalService).reindexDocument("docs", entity.getId() + ".yaml", originalPath, "r-backend-java-openapi");
     }
 
     @Test
@@ -167,7 +181,7 @@ class DocumentSyncServiceImplTest {
         DocumentEntity entity = existing("paths: {}\n", false);
         String previousHash = entity.getContentHash();
         when(repository.findBySourceKey(KEY)).thenReturn(Optional.of(entity));
-        when(minioClient.putObject(any(PutObjectArgs.class))).thenThrow(new RuntimeException("minio down"));
+        storage.failWith(new RuntimeException("storage down"));
 
         assertThatThrownBy(() -> service.sync(request("paths:\n  /a: {}\n", "c2")))
             .isInstanceOf(DocumentSyncStorageException.class);
@@ -175,7 +189,7 @@ class DocumentSyncServiceImplTest {
         assertThat(entity.getSourceCommit()).isEqualTo("old");
         assertThat(entity.getStatus()).isEqualTo(DocumentStatus.COMPLETE);
         verify(repository, never()).save(any());
-        verify(externalService, never()).reindexDocument(anyString(), anyString(), anyString());
+        verify(externalService, never()).reindexDocument(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test

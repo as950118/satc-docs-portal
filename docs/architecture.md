@@ -15,7 +15,7 @@ flowchart LR
     BE["백엔드<br/>Spring Boot · :8080"]
     IDX["인덱싱 서비스<br/>FastAPI · :8000"]
     PG[("Postgres<br/>document, spec_*, app_user")]
-    MINIO[("MinIO<br/>업로드 파일 원본")]
+    MINIO[("파일 저장소<br/>S3 호환 · 기본 MinIO<br/>업로드 파일 원본")]
   end
 
   subgraph Shared["공유 (MCP 서버 compose)"]
@@ -41,13 +41,13 @@ flowchart LR
 |---|---|
 | 프론트엔드 | 문서 트리, 검색, PRD·기술문서 화면. 백엔드에 직접 연결하고 SSE로 변경 알림을 받습니다 |
 | 백엔드 | 문서·스펙 API, 인증(JWT)과 MCP용 OAuth 서버, SSE 이벤트 허브, 스펙 워크플로우 전이 규칙 |
-| 인덱싱 서비스 | MinIO의 문서를 청크로 쪼개 ES에 색인하고, 끝나면 백엔드에 상태를 알립니다. 전체 문서 검색도 담당 |
+| 인덱싱 서비스 | 파일 저장소의 문서를 청크로 쪼개 ES에 색인하고, 끝나면 백엔드에 상태를 알립니다. 전체 문서 검색도 담당 |
 | Postgres | 문서 트리(`document`), PRD·기술문서(`spec_document`, `spec_event`, `spec_pr_link`), 계정, OAuth 클라이언트 |
-| MinIO | 업로드한 문서 파일 원본 |
+| 파일 저장소 | 업로드한 문서 파일 원본. S3 호환 저장소(기본 MinIO, Supabase Storage)이고 설정은 [storage.md](storage.md) |
 | Elasticsearch | 포털이 `document_chunks`(청크)와 `full_documents`(전체 문서)를 씁니다. MCP 서버도 같은 클러스터를 공유합니다 |
 | MCP 서버 | Claude Code 등이 쓰는 도구 모음. 스펙 워크플로우 도구는 로그인한 사용자의 토큰으로 백엔드를 호출합니다 |
 
-**데이터 정본**: 업로드 문서는 MinIO 파일이 원본이고 ES는 검색용 파생물입니다. PRD·기술문서는 Postgres의 마크다운이 정본이며 ES에는 색인하지 않습니다.
+**데이터 정본**: 업로드 문서는 파일 저장소의 파일이 원본이고 ES는 검색용 파생물입니다. PRD·기술문서는 Postgres의 마크다운이 정본이며 ES에는 색인하지 않습니다.
 
 ## 2. 문서 업로드와 인덱싱
 
@@ -56,7 +56,7 @@ sequenceDiagram
   autonumber
   participant U as 사용자 A (브라우저)
   participant BE as 백엔드
-  participant M as MinIO
+  participant M as 파일 저장소
   participant I as 인덱싱 서비스
   participant ES as Elasticsearch
   participant B as 사용자 B (브라우저)
@@ -66,7 +66,7 @@ sequenceDiagram
   BE->>M: 파일 업로드
   BE->>BE: 상태 INDEXING
   BE-->>B: SSE document.created (originId=A)
-  BE-)I: POST /process-document (비동기)
+  BE-)I: POST /process-document (버킷, 키, 제목 · 비동기)
   I->>M: 원본 다운로드
   I->>I: 청크 분할
   I->>ES: 청크 색인 (document_chunks)
@@ -98,7 +98,7 @@ flowchart LR
 
 - PRD·기술문서는 ES에 없으므로 Postgres에서 직접 찾습니다. 모든 검색어 단어가 제목 또는 본문에 있어야 하고, 새 버전이 있는 이전 PRD 버전은 제외합니다.
 - 업로드 문서는 ES 제목을 쓰고, 포털 DB에 없는 색인 항목(`indexOnly`)은 `GET /docs/indexed/{id}`로 본문을 가져옵니다.
-- 업로드 문서 본문은 `GET /docs/{id}/content`(MinIO)로 가져옵니다.
+- 업로드 문서 본문은 `GET /docs/{id}/content`(파일 저장소)로 가져옵니다.
 
 ## 4. 실시간 이벤트 (SSE) 내부 구조
 
@@ -178,7 +178,7 @@ stateDiagram-v2
 stateDiagram-v2
   direction LR
   [*] --> UPLOADING
-  UPLOADING --> INDEXING: MinIO 업로드 완료
+  UPLOADING --> INDEXING: 저장소 업로드 완료
   INDEXING --> COMPLETE: 색인 완료 (청크 0개 포함)
   INDEXING --> FAILED: ES 청크 색인 실패 · 처리 중 예외
   FAILED --> INDEXING: 동기화로 내용이 바뀌어 다시 들어옴

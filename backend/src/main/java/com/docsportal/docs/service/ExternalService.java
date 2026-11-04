@@ -9,11 +9,12 @@ public interface ExternalService {
     
     /**
      * 문서 업로드 완료 후 외부 API를 호출합니다.
-     * 
-     * @param bucketName MinIO 버킷 이름
-     * @param objectName MinIO Object 이름
+     *
+     * @param bucketName 저장소 버킷 이름
+     * @param objectName 저장소 객체 키
+     * @param title      검색 색인에 쓸 문서 제목. 객체 키에 제목이 없을 수 있어(STORAGE_ASCII_KEYS) 따로 보낸다
      */
-    void notifyDocumentUploaded(String bucketName, String objectName);
+    void notifyDocumentUploaded(String bucketName, String objectName, String title);
     
     /**
      * 외부 검색 API를 호출하여 문서를 검색합니다.
@@ -23,7 +24,7 @@ public interface ExternalService {
      */
     SearchResultResponse searchDocuments(String query);
 
-    /** 색인 서비스에 저장된 문서 본문을 가져온다. 없으면 null. MinIO 에 파일이 없는 색인 전용 문서를 열 때 쓴다. */
+    /** 색인 서비스에 저장된 문서 본문을 가져온다. 없으면 null. 저장소에 파일이 없는 색인 전용 문서를 열 때 쓴다. */
     java.util.Map<String, Object> getIndexedDocument(String documentId);
     
     /**
@@ -38,9 +39,10 @@ public interface ExternalService {
      * Indexing Server는 청크를 문서 ID 기준으로 삭제하고 새 청크는 랜덤 ID로 추가하므로,
      * 반드시 "기존 청크 삭제 → 재처리" 순서로 한 비동기 작업 안에서 실행합니다.
      *
-     * @param bucketName MinIO 버킷
+     * @param bucketName 저장소 버킷
      * @param documentFileName 삭제 대상 파일명 (파일 아이디+확장자 형태)
-     * @param objectName 재처리할 MinIO 객체 경로
+     * @param objectName 재처리할 저장소 객체 키
+     * @param title 검색 색인에 쓸 문서 제목
      */
-    void reindexDocument(String bucketName, String documentFileName, String objectName);
+    void reindexDocument(String bucketName, String documentFileName, String objectName, String title);
 }

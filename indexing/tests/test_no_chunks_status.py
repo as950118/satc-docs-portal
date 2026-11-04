@@ -6,11 +6,16 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
-# 이 모듈들은 import 하는 순간 MinIO·ES 에 연결하므로 document_processor 를 불러오는 동안만 가짜로 바꾼다.
+# ES·청킹 모듈은 document_processor 를 불러오는 동안만 가짜로 바꾼다.
 # patch.dict 가 끝나면 sys.modules 를 되돌려서 같은 프로세스의 다른 테스트를 오염시키지 않는다.
-_STUBS = {f"app.services.{n}": MagicMock() for n in ("minio_client", "elasticsearch_client", "full_document_client", "chunking_service")}
+_STUBS = {f"app.services.{n}": MagicMock() for n in ("elasticsearch_client", "full_document_client", "chunking_service")}
 with patch.dict(sys.modules, _STUBS):
     from app.services import document_processor as dp  # noqa: E402
+from app.services.object_storage import ObjectNotFound, StoredObject  # noqa: E402
+
+
+def _stored(text):
+    return StoredObject(data=text.encode("utf-8"), content_type="text/markdown", last_modified=None)
 
 
 def _task():
@@ -23,14 +28,12 @@ def _task():
 class NoChunksTest(unittest.TestCase):
     def _run(self, chunks, full_doc_success=True):
         with patch.object(dp, "get_queue_service", return_value=MagicMock()), \
-             patch.object(dp, "minio_client") as minio, \
+             patch.object(dp, "object_storage") as storage, \
              patch.object(dp, "chunking_service") as chunker, \
              patch.object(dp, "elasticsearch_client") as es, \
              patch.object(dp, "full_document_client") as full, \
              patch.object(dp, "update_document_status", return_value=True) as status:
-            minio.file_exists.return_value = True
-            minio.download_file.return_value = "# 짧은 문서\n내용".encode("utf-8")
-            minio.get_file_info.return_value = None
+            storage.get.return_value = _stored("# 짧은 문서\n내용")
             chunker.chunk_document.return_value = chunks
             chunker.get_chunking_stats.return_value = {}
             es.index_chunks_bulk.return_value = {"success": len(chunks)}
@@ -64,7 +67,7 @@ class FailureStatusTest(unittest.TestCase):
 
     def _patches(self):
         return (patch.object(dp, "get_queue_service", return_value=MagicMock()),
-                patch.object(dp, "minio_client"),
+                patch.object(dp, "object_storage"),
                 patch.object(dp, "chunking_service"),
                 patch.object(dp, "elasticsearch_client"),
                 patch.object(dp, "full_document_client"),
@@ -72,10 +75,8 @@ class FailureStatusTest(unittest.TestCase):
 
     def test_ES_청크_색인이_모두_실패하면_FAILED(self):
         q, m, c, e, f, st = self._patches()
-        with q, m as minio, c as chunker, e as es, f as full, st as status:
-            minio.file_exists.return_value = True
-            minio.download_file.return_value = "# 문서\n내용".encode("utf-8")
-            minio.get_file_info.return_value = None
+        with q, m as storage, c as chunker, e as es, f as full, st as status:
+            storage.get.return_value = _stored("# 문서\n내용")
             chunker.chunk_document.return_value = [{"x": 1}]
             chunker.get_chunking_stats.return_value = {}
             es.delete_chunks_by_source.return_value = {"deleted": 0}
@@ -86,8 +87,8 @@ class FailureStatusTest(unittest.TestCase):
 
     def test_처리_중_예외가_나면_FAILED를_알리고_예외를_다시_던진다(self):
         q, m, c, e, f, st = self._patches()
-        with q, m as minio, c, e, f, st as status:
-            minio.file_exists.return_value = False  # "File not found" 예외 경로
+        with q, m as storage, c, e, f, st as status:
+            storage.get.side_effect = ObjectNotFound("cmp-docs/documents/abc-123/short.md")
             with self.assertRaises(Exception):
                 dp.process_document_handler(_task())
             status.assert_called_once_with("documents/abc-123/short.md", "FAILED")

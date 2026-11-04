@@ -11,7 +11,6 @@ import com.docsportal.docs.format.response.DocumentTreeResponse;
 import com.docsportal.docs.format.response.FolderListResponse;
 
 public interface DocumentService {
-    void createBucketIfNotExists();
     void uploadDocumentAsync(MultipartFile file, String parentId, String originId);
     
     // 새 문서/폴더 생성 (동기 + 비동기)
@@ -28,7 +27,7 @@ public interface DocumentService {
     // 문서 삭제
     void deleteDocument(String documentId);
 
-    /** MinIO 에 저장된 문서 본문(UTF-8 텍스트). 문서나 파일이 없으면 null. */
+    /** 저장소에 있는 문서 본문(UTF-8 텍스트). 문서나 파일이 없으면 null. */
     String getDocumentContent(String documentId);
     
     // 문서/폴더 이동

@@ -60,14 +60,14 @@ public class ExternalServiceImpl implements ExternalService {
     
     @Override
     @Async("fileUploadExecutor")
-    public void notifyDocumentUploaded(String bucketName, String objectName) {
+    public void notifyDocumentUploaded(String bucketName, String objectName, String title) {
         if (!externalApiEnabled) {
             logger.info("[EXTERNAL API] External API is disabled, skipping notification");
             return;
         }
         
         try {
-            ExternalApiRequest request = new ExternalApiRequest(bucketName, objectName);
+            ExternalApiRequest request = new ExternalApiRequest(bucketName, objectName, title);
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -603,9 +603,9 @@ public class ExternalServiceImpl implements ExternalService {
 
     @Override
     @Async("fileUploadExecutor")
-    public void reindexDocument(String bucketName, String documentFileName, String objectName) {
+    public void reindexDocument(String bucketName, String documentFileName, String objectName, String title) {
         // self-invocation 이므로 아래 두 호출은 @Async 프록시를 거치지 않고 이 스레드에서 순서대로 실행된다
         notifyDocumentsDeleted(List.of(documentFileName));
-        notifyDocumentUploaded(bucketName, objectName);
+        notifyDocumentUploaded(bucketName, objectName, title);
     }
 }

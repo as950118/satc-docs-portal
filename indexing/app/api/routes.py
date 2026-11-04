@@ -29,7 +29,7 @@ router = APIRouter()
 @router.post("/process-document", response_model=DocumentProcessResponse)
 async def process_document(request: DocumentProcessRequest) -> DocumentProcessResponse:
     """
-    Process a document: download from MinIO, chunk, and index to Elasticsearch
+    Process a document: download from storage, chunk, and index to Elasticsearch
     
     Args:
         request: Document processing request
@@ -47,6 +47,7 @@ async def process_document(request: DocumentProcessRequest) -> DocumentProcessRe
             data={
                 "bucket_name": request.bucket_name,
                 "object_name": request.object_name,
+                "title": request.title,
                 "metadata": request.metadata
             }
         )

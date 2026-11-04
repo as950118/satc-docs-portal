@@ -13,6 +13,26 @@ spring:
       ddl-auto: update
     show-sql: true
 
+  servlet:
+    multipart:
+      # 업로드 파일 하나와 요청 전체의 상한(스프링 기본값은 1MB, 10MB). 넘으면 413 을 돌려준다
+      max-file-size: ${DOCS_MAX_UPLOAD_SIZE:50MB}
+      max-request-size: ${DOCS_MAX_REQUEST_SIZE:100MB}
+
+# 문서 파일 저장소(S3 호환: MinIO, Supabase Storage, Cloudflare R2). 비어 있는 항목은 기본값을 쓰고,
+# endpoint·bucket·access-key·secret-key 는 아래 minio.* 값을 쓴다. 검증 규칙은 StorageConfig 참고
+storage:
+  endpoint: ${STORAGE_ENDPOINT:}
+  region: ${STORAGE_REGION:}
+  bucket: ${STORAGE_BUCKET:}
+  access-key: ${STORAGE_ACCESS_KEY:}
+  secret-key: ${STORAGE_SECRET_KEY:}
+  path-style: ${STORAGE_PATH_STYLE:}
+  manage-bucket: ${STORAGE_MANAGE_BUCKET:}
+  public-read: ${STORAGE_PUBLIC_READ:}
+  ascii-keys: ${STORAGE_ASCII_KEYS:}
+
+# 예전 MinIO 설정(MINIO_HOST, MINIO_PORT, MINIO_CLIENT_ID, MINIO_CLIENT_SECRET, MINIO_BUCKET_NAME). storage.* 가 비어 있을 때만 쓴다
 minio:
   host: 127.0.0.1
   port: 9000

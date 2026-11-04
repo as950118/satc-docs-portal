@@ -5,8 +5,9 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.config import settings
+from app.config import settings, storage_config
 from app.api.routes import router
+from app.services.object_storage import object_storage
 from app.services.queue_service import InternalQueueService, set_queue_service
 
 # Configure logging
@@ -23,7 +24,7 @@ set_queue_service(queue_service)
 # Create FastAPI application
 app = FastAPI(
     title="Document Indexing Server",
-    description="FastAPI 서버로 MinIO에서 파일을 다운로드하고 청킹하여 Elasticsearch에 인덱싱합니다.",
+    description="FastAPI 서버로 S3 호환 저장소에서 파일을 다운로드하고 청킹하여 Elasticsearch에 인덱싱합니다.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -59,7 +60,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def startup_event():
     """Application startup event"""
     logger.info("Document Indexing Server starting up...")
-    logger.info(f"MinIO endpoint: {settings.minio_endpoint}")
+    logger.info(f"Storage: {storage_config.endpoint} bucket={storage_config.bucket} path_style={storage_config.path_style}")
+    object_storage.ensure_bucket()
     logger.info(f"Elasticsearch: {settings.elasticsearch_host}:{settings.elasticsearch_port}")
     
     # Register task handlers

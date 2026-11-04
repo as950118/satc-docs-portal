@@ -1,8 +1,7 @@
 package com.docsportal.docs.service;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,7 +12,6 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,31 +28,24 @@ import com.docsportal.docs.live.OriginIdHolder;
 import com.docsportal.docs.persistence.DocumentEntity;
 import com.docsportal.docs.persistence.DocumentStatus;
 import com.docsportal.docs.repository.DocsRepository;
-
-import io.minio.BucketExistsArgs;
-import io.minio.GetObjectArgs;
-import io.minio.MakeBucketArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
-import io.minio.SetBucketPolicyArgs;
+import com.docsportal.docs.storage.ObjectStorage;
+import com.docsportal.docs.storage.StorageSettings;
 
 
 @Service
 public class DocumentServiceImpl implements DocumentService {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentServiceImpl.class);
-    private final MinioClient minioClient;
+    private final ObjectStorage storage;
+    private final StorageSettings storageSettings;
     private final DocsRepository docsRepository;
     private final ExternalService externalService;
     private final LiveEventPublisher liveEvents;
 
-    @Value("${minio.bucket-name}")
-    private String bucketName;
-
-    public DocumentServiceImpl(MinioClient minioClient, DocsRepository docsRepository, ExternalService externalService,
-                               LiveEventPublisher liveEvents) {
-        this.minioClient = minioClient;
+    public DocumentServiceImpl(ObjectStorage storage, StorageSettings storageSettings, DocsRepository docsRepository,
+                               ExternalService externalService, LiveEventPublisher liveEvents) {
+        this.storage = storage;
+        this.storageSettings = storageSettings;
         this.docsRepository = docsRepository;
         this.externalService = externalService;
         this.liveEvents = liveEvents;
@@ -67,53 +58,11 @@ public class DocumentServiceImpl implements DocumentService {
                 || doc.getFilePath() == null) {
             return null;
         }
-        try (InputStream in = minioClient.getObject(
-                GetObjectArgs.builder().bucket(doc.getBucket() != null ? doc.getBucket() : bucketName)
-                    .object(doc.getFilePath()).build())) {
-            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            logger.error("[CONTENT] Failed to read {} from MinIO: {}", documentId, e.getMessage());
-            return null;
-        }
-    }
-
-    @Override
-    public void createBucketIfNotExists() {
         try {
-            boolean isExist = minioClient.bucketExists(
-                    BucketExistsArgs.builder()
-                            .bucket(bucketName).build());
-            if (!isExist) {
-                minioClient.makeBucket(
-                        MakeBucketArgs.builder()
-                                .bucket(bucketName)
-                                .build());
-
-                                String policyJson = """
-                                    {
-                                      "Version":"2012-10-17",
-                                      "Statement":[
-                                        {
-                                          "Effect":"Allow",
-                                          "Principal":{"AWS":"*"},
-                                          "Action":["s3:GetObject"],
-                                          "Resource":["arn:aws:s3:::%s/*"]
-                                        }
-                                      ]
-                                    }
-                                    """.formatted(bucketName);
-                            
-                                    minioClient.setBucketPolicy(
-                                        SetBucketPolicyArgs.builder()
-                                            .bucket(bucketName)
-                                            .config(policyJson)
-                                            .build()
-                                    );
-                            
-                logger.info("[MINIO] New Bucket Created with Name : {}", bucketName);
-            }
+            return new String(storage.get(doc.getFilePath()), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            logger.error(e.getMessage());
+            logger.error("[CONTENT] Failed to read {} from storage: {}", documentId, e.getMessage());
+            return null;
         }
     }
     
@@ -146,10 +95,6 @@ public class DocumentServiceImpl implements DocumentService {
             return filename;
         }
         return filename.substring(0, lastDotIndex);
-    }
-    
-    private String generateFilePath(String objectName, String extension) {
-        return String.format("documents/%s.%s", objectName, extension);
     }
     
     @Override
@@ -187,7 +132,7 @@ public class DocumentServiceImpl implements DocumentService {
                 .id(documentId)
                 .parentId(normalizedParentId)
                 .title(normalizedTitle)
-                .bucket(bucketName)
+                .bucket(storageSettings.bucket())
                 .filePath(null) // 폴더는 파일 경로가 없음
                 .extension(null) // 폴더는 확장자가 없음
                 .isFolder(true)  // 폴더임
@@ -267,17 +212,14 @@ public class DocumentServiceImpl implements DocumentService {
                                                    String originId) {
         try {
             
-            // 버킷이 존재하지 않으면 생성
-            createBucketIfNotExists();
-            
-            String objectName = String.format("%s/%s", documentId, title);
-            String filePath = generateFilePath(objectName, extension);
+            storage.ensureBucket();
+            String filePath = storageSettings.documentKey(documentId, title, extension);
             
             DocumentEntity documentEntity = DocumentEntity.builder()
                 .id(documentId)
                 .parentId(parentId)
                 .title(title)
-                .bucket(bucketName)
+                .bucket(storageSettings.bucket())
                 .filePath(filePath)
                 .extension(extension)
                 .isFolder(false) // 파일이므로 폴더가 아님
@@ -286,28 +228,17 @@ public class DocumentServiceImpl implements DocumentService {
             
             DocumentEntity savedEntity = docsRepository.save(documentEntity);
             
-            // MinIO에 파일 업로드
-            try (InputStream inputStream = new ByteArrayInputStream(fileBytes)) {
-                minioClient.putObject(
-                    PutObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(filePath)
-                        .stream(inputStream, fileBytes.length, -1)
-                        .contentType(contentType)
-                        .build()
-                );
-                logger.info("[MINIO] File uploaded successfully: {}", filePath);
-                
-                // MinIO 업로드 완료 후 상태를 INDEXING으로 변경
-                savedEntity.updateStatus(DocumentStatus.INDEXING);
-                docsRepository.save(savedEntity);
-                logger.info("[STATUS] Document status updated to INDEXING: {}", documentId);
-                liveEvents.publish(LiveEventType.DOCUMENT_CREATED, documentId, title, parentId,
-                    DocumentStatus.INDEXING.name(), null, originId);
-                
-                // 외부 API 호출
-                externalService.notifyDocumentUploaded(bucketName, filePath);
-            }
+            storage.put(filePath, fileBytes, contentType);
+            logger.info("[STORAGE] File uploaded successfully: {}", filePath);
+
+            // 업로드 완료 후 상태를 INDEXING으로 변경
+            savedEntity.updateStatus(DocumentStatus.INDEXING);
+            docsRepository.save(savedEntity);
+            logger.info("[STATUS] Document status updated to INDEXING: {}", documentId);
+            liveEvents.publish(LiveEventType.DOCUMENT_CREATED, documentId, title, parentId,
+                DocumentStatus.INDEXING.name(), null, originId);
+
+            externalService.notifyDocumentUploaded(storageSettings.bucket(), filePath, title);
             
             return new DocumentResponse(savedEntity);
             
@@ -553,16 +484,11 @@ public class DocumentServiceImpl implements DocumentService {
             deleted.add(document);
             logger.info("[DELETE] Document soft deleted in DB: {} ({})", documentId, document.getTitle());
             
-            // 4. MinIO에서 파일 삭제
+            // 4. 저장소에서 파일 삭제
             String objectName = document.getFilePath();
             if (objectName != null && !objectName.isEmpty()) {
-                minioClient.removeObject(
-                    RemoveObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(objectName)
-                        .build()
-                );
-                logger.info("[DELETE] File removed from MinIO: {}", objectName);
+                storage.delete(objectName);
+                logger.info("[DELETE] File removed from storage: {}", objectName);
             }
             
         } catch (Exception e) {

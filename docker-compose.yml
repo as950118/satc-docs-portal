@@ -65,11 +65,18 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-docs}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - MINIO_HOST=minio
-      - MINIO_PORT=${MINIO_PORT:-9000}
-      - MINIO_CLIENT_ID=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_CLIENT_SECRET=${MINIO_SECRET_KEY:-minioadmin}
-      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-docs}
+      # 파일 저장소(S3 호환). 비우면 minio 컨테이너를 쓴다. Supabase Storage 는 docs/storage.md
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-http://minio:9000}
+      - STORAGE_REGION=${STORAGE_REGION:-us-east-1}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-${MINIO_BUCKET_NAME:-docs}}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY:-minioadmin}}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY:-minioadmin}}
+      - STORAGE_PATH_STYLE=${STORAGE_PATH_STYLE:-true}
+      - STORAGE_MANAGE_BUCKET=${STORAGE_MANAGE_BUCKET:-true}
+      - STORAGE_PUBLIC_READ=${STORAGE_PUBLIC_READ:-true}
+      - STORAGE_ASCII_KEYS=${STORAGE_ASCII_KEYS:-false}
+      - DOCS_MAX_UPLOAD_SIZE=${DOCS_MAX_UPLOAD_SIZE:-50MB}
+      - DOCS_MAX_REQUEST_SIZE=${DOCS_MAX_REQUEST_SIZE:-100MB}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       - EXTERNAL_API_HOST=http://indexing
       - EXTERNAL_API_PORT=${INDEXING_PORT:-8000}
@@ -108,11 +115,14 @@ services:
     container_name: satc-docs-indexing
     restart: unless-stopped
     environment:
-      - MINIO_ENDPOINT=minio:${MINIO_PORT:-9000}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
-      - MINIO_SECURE=${MINIO_SECURE:-false}
-      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-docs}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-http://minio:9000}
+      - STORAGE_REGION=${STORAGE_REGION:-us-east-1}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-${MINIO_BUCKET_NAME:-docs}}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-${MINIO_ACCESS_KEY:-minioadmin}}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-${MINIO_SECRET_KEY:-minioadmin}}
+      - STORAGE_PATH_STYLE=${STORAGE_PATH_STYLE:-true}
+      - STORAGE_MANAGE_BUCKET=${STORAGE_MANAGE_BUCKET:-true}
+      - STORAGE_PUBLIC_READ=${STORAGE_PUBLIC_READ:-true}
       # satc-mcp-server 쪽 elasticsearch 컨테이너를 shared-es 네트워크 경유로 공유 (컨테이너명으로 접근)
       - ELASTICSEARCH_HOST=elasticsearch
       - ELASTICSEARCH_PORT=9200
