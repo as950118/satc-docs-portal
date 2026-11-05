@@ -124,6 +124,7 @@ Supabase는 `public` 스키마의 테이블을 Data API(`/rest/v1/<table>`)로 �
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://${SUPABASE_DB_HOST}:5432/postgres?sslmode=require` | Spring이 `${...}`를 다른 환경변수로 채운다 |
 | `DOCS_DB_SCHEMA` / `SEARCH_PG_SCHEMA` | `docs_portal` | 1절 "스키마와 RLS" |
 | `DOCS_AUTH_TOKEN_SECRET` | Render가 만든 256비트 값 | 로그인 토큰 서명 키. 바꾸면 기존 토큰이 모두 무효가 된다 |
+| `DOCS_INTERNAL_TOKEN` | Render가 만든 값 | indexing이 backend `/api/v1/docs/status`를 부를 때 쓰는 서비스 간 토큰. indexing은 `fromService`로 같은 값을 받는다. 문서 API 인증 PR(#24)이 머지된 뒤 필수이고, 없으면 backend가 기동하지 않는다 |
 | `DOCS_AUTH_DEV_ACCOUNTS` | `false` | `true`면 `admin`/`admin123`처럼 비밀번호가 알려진 계정 9개를 만든다 |
 | `DOCS_OAUTH_ISSUER` | `${RENDER_EXTERNAL_URL}` | Render가 넣는 backend 공개 주소. 사용자 도메인을 붙이면 그 주소로 바꾼다 |
 | `EXTERNAL_API_HOST` / `EXTERNAL_API_PORT` | indexing의 사설망 호스트와 포트(`fromService`) | 호스트에 스킴이 없으면 backend가 `http://`를 붙인다 |
