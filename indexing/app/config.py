@@ -10,6 +10,8 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
+_SCHEMA_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+
 SEARCH_CHOICES = {
     "search_backend": ("es", "postgres"),
     "search_dual_write": ("true", "false"),
@@ -69,6 +71,8 @@ class Settings(BaseSettings):
     search_pg_user: str = "postgres"
     search_pg_password: str = "postgres"
     search_pg_trgm_threshold: float = 0.2
+    # 검색 테이블을 둘 스키마. 비우면 search_path 기본값(public), 정하면 기동 시 만들고 search_path 맨 앞에 둔다
+    search_pg_schema: str = ""
 
     @field_validator(*SEARCH_CHOICES, mode="before")
     @classmethod
@@ -80,6 +84,14 @@ class Settings(BaseSettings):
         if normalized not in allowed:
             raise ValueError(f"{info.field_name.upper()} 허용 값: {', '.join(allowed)} (입력: {value!r})")
         return normalized
+
+    @field_validator("search_pg_schema")
+    @classmethod
+    def _schema_name(cls, value):
+        name = value.strip()
+        if name and not _SCHEMA_NAME.match(name):
+            raise ValueError(f"SEARCH_PG_SCHEMA 는 소문자, 숫자, 밑줄로 된 PostgreSQL 스키마 이름이어야 합니다 (입력: {value!r})")
+        return name
 
     class Config:
         env_file = ".env"
