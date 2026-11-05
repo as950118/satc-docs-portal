@@ -5,7 +5,6 @@ import static com.docsportal.docs.common.Path.API_DOCS_STANDARD_HISTORY;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -41,9 +40,6 @@ import com.docsportal.docs.service.UploadActor;
 public class StandardDocumentController {
 
     private static final String BEARER = "Bearer ";
-    /** 조회 전용 계정(USER 만 가진 계정)은 등록할 수 없다. */
-    static final Set<String> WRITER_ROLES = Set.of(
-        Roles.ADMIN, Roles.PLANNER, Roles.BACKEND, Roles.FRONTEND, Roles.DATA, Roles.REVIEWER, Roles.UPLOADER);
 
     private final StandardDocumentService service;
     private final AuthService authService;
@@ -68,7 +64,7 @@ public class StandardDocumentController {
             @RequestParam(value = "parentId", required = false) String parentId) throws IOException {
         UserInfoResponse user = authenticate(authorization);
         List<String> roles = user.getRoles() == null ? List.of() : user.getRoles();
-        if (roles.stream().noneMatch(WRITER_ROLES::contains)) {
+        if (roles.stream().noneMatch(Roles.DOCUMENT_WRITERS::contains)) {
             throw new SpecException(HttpStatus.FORBIDDEN, "표준문서를 등록할 권한(역할)이 없습니다.");
         }
         DocumentSyncRequest request = new DocumentSyncRequest(sourceKey, sourceRepo, sourcePath, sourceCommit,
