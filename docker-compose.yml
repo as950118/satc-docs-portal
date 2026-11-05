@@ -81,6 +81,9 @@ services:
       - EXTERNAL_API_HOST=http://indexing
       - EXTERNAL_API_PORT=${INDEXING_PORT:-8000}
       - EXTERNAL_API_ENABLED=${EXTERNAL_API_ENABLED:-true}
+      # 문서 API 인증. 켜 두면 DOCS_INTERNAL_TOKEN 이 비어 있을 때 기동하지 않는다. indexing 과 같은 값을 쓴다
+      - DOCS_API_AUTH_REQUIRED=${DOCS_API_AUTH_REQUIRED:-true}
+      - DOCS_INTERNAL_TOKEN=${DOCS_INTERNAL_TOKEN:-}
       - DOCS_AUTH_TOKEN_SECRET=${DOCS_AUTH_TOKEN_SECRET:-}
       - DOCS_AUTH_TOKEN_TTL=${DOCS_AUTH_TOKEN_TTL:-12h}
       - DOCS_AUTH_DEV_ACCOUNTS=${DOCS_AUTH_DEV_ACCOUNTS:-false}
@@ -136,6 +139,8 @@ services:
       - MIN_CHUNK_LENGTH=${MIN_CHUNK_LENGTH:-100}
       - BACKEND_API_HOST=backend
       - BACKEND_API_PORT=8080
+      # 상태 콜백(POST /api/v1/docs/status)에 싣는 내부 토큰. backend 와 같은 값
+      - DOCS_INTERNAL_TOKEN=${DOCS_INTERNAL_TOKEN:-}
       # 검색 저장소 전환 단계는 indexing/app/search/stores.py 표를 따른다. 기본값은 ES만 쓰고 PostgreSQL에 접속하지 않는다
       - SEARCH_BACKEND=${SEARCH_BACKEND:-es}
       - SEARCH_DUAL_WRITE=${SEARCH_DUAL_WRITE:-false}
