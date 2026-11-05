@@ -16,7 +16,10 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.docsportal.docs.config.CorsConfig;
 import com.docsportal.docs.service.AuthService;
 
-@WebMvcTest(controllers = AuthController.class, properties = "cors.allowed-origins=https://docs.example.com, http://localhost:3000")
+@WebMvcTest(controllers = AuthController.class, properties = {
+    "cors.allowed-origins=https://docs.example.com, http://localhost:3000",
+    "docs.internal.token=test-internal-token"
+})
 @Import(CorsConfig.class)
 class CorsPreflightTest {
 

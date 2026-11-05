@@ -12,7 +12,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * 변경 알림 한 건. 본문(body/content)·파일 경로는 의도적으로 필드가 없다 (AC-6).
  *
  * @param status 문서는 DocumentStatus, 스펙은 SpecStatus 문자열. 해당 없으면 null
- * @param actor  스펙 변경만 사용자명. 업로드 문서는 인증이 없어 null
+ * @param actor  스펙 변경만 사용자명. 업로드 문서는 행위자를 기록하지 않아 null
  * @param originId 변경을 일으킨 클라이언트가 보낸 X-Client-Id. 없으면 null
  */
 public record LiveEvent(LiveEventType type, String id, String title, String parentId, String status,

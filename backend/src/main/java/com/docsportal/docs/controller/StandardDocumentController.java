@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.docsportal.docs.common.DocsAccess;
+import com.docsportal.docs.common.DocsAccess.Level;
 import com.docsportal.docs.common.RestResponse;
 import com.docsportal.docs.common.Roles;
 import com.docsportal.docs.format.request.DocumentSyncRequest;
@@ -52,6 +54,7 @@ public class StandardDocumentController {
         this.users = users;
     }
 
+    @DocsAccess(Level.WRITE)
     @PutMapping(value = API_DOCS_STANDARD, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RestResponse<StandardDocumentResponse.Registered>> register(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -72,6 +75,7 @@ public class StandardDocumentController {
         return ResponseEntity.ok(RestResponse.responseOk(service.register(request, uploadActor(user))));
     }
 
+    @DocsAccess(Level.READ)
     @GetMapping(API_DOCS_STANDARD_HISTORY)
     public ResponseEntity<RestResponse<StandardDocumentResponse.History>> history(
             @RequestHeader(value = "Authorization", required = false) String authorization,
