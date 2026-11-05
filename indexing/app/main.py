@@ -62,6 +62,9 @@ async def startup_event():
     """Application startup event"""
     logger.info("Document Indexing Server starting up...")
     logger.info(f"Storage: {storage_config.endpoint} bucket={storage_config.bucket} path_style={storage_config.path_style}")
+    if not settings.docs_internal_token:
+        logger.warning("DOCS_INTERNAL_TOKEN 이 비어 있습니다. backend 가 문서 API 인증을 켜 두었으면(기본값) "
+                       "상태 콜백이 401 로 거부되어 문서가 INDEXING 에 남습니다.")
     object_storage.ensure_bucket()
     logger.info(f"Elasticsearch: {settings.elasticsearch_host}:{settings.elasticsearch_port}")
     logger.info(f"Search: backend={settings.search_backend}, dual_write={settings.search_dual_write}, "

@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     # Backend API Configuration
     backend_api_host: str = Field(default="localhost", env="BACKEND_API_HOST")
     backend_api_port: int = Field(default=8080, env="BACKEND_API_PORT")
+    # backend 의 DOCS_INTERNAL_TOKEN 과 같은 값. 상태 콜백(POST /api/v1/docs/status)에 X-Internal-Token 으로 싣는다
+    docs_internal_token: str = Field(default="", env="DOCS_INTERNAL_TOKEN", repr=False)
 
     # Search store switch. Each field is read from the upper-case env var of the same name.
     search_backend: Literal["es", "postgres"] = "es"

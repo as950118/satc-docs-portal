@@ -102,6 +102,20 @@ class UpdateStatusResponseTest(unittest.TestCase):
         with self._post(500, {}):
             self.assertFalse(dp.update_document_status("documents/abc-123/a.md", "COMPLETE"))
 
+    def test_내부_토큰을_X_Internal_Token_헤더로_보낸다(self):
+        with patch.object(dp.settings, "docs_internal_token", "tok"), self._post(200, {"status": 200}) as post:
+            self.assertTrue(dp.update_document_status("documents/abc-123/a.md", "COMPLETE"))
+        self.assertEqual(post.call_args.kwargs["headers"]["X-Internal-Token"], "tok")
+
+    def test_내부_토큰이_비어_있으면_헤더를_싣지_않는다(self):
+        with patch.object(dp.settings, "docs_internal_token", ""), self._post(200, {"status": 200}) as post:
+            dp.update_document_status("documents/abc-123/a.md", "COMPLETE")
+        self.assertNotIn("X-Internal-Token", post.call_args.kwargs["headers"])
+
+    def test_백엔드가_401로_거부하면_실패(self):
+        with self._post(401, {"status": 401, "errorMessage": "유효하지 않은 내부 토큰입니다."}):
+            self.assertFalse(dp.update_document_status("documents/abc-123/a.md", "COMPLETE"))
+
 
 if __name__ == "__main__":
     unittest.main()

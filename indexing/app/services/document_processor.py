@@ -14,6 +14,9 @@ from app.config import settings, storage_config
 
 logger = logging.getLogger(__name__)
 
+# backend DocsAccessInterceptor.INTERNAL_TOKEN_HEADER 와 같아야 한다
+INTERNAL_TOKEN_HEADER = "X-Internal-Token"
+
 
 def extract_title_from_object_name(object_name: str) -> str:
     """
@@ -148,10 +151,13 @@ def update_document_status(object_name: str, status: str = "COMPLETE") -> bool:
         
         logger.info(f"Calling status update API for document {document_id} with status {status}")
         
+        headers = {"Content-Type": "application/json"}
+        if settings.docs_internal_token:
+            headers[INTERNAL_TOKEN_HEADER] = settings.docs_internal_token
         response = requests.post(
             api_url, 
             json=payload, 
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             timeout=10  # 10초 타임아웃
         )
         
