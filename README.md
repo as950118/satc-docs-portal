@@ -83,6 +83,9 @@ docker compose up {service-name} -d
 
 - [문서관리포탈](http://localhost:3000) 접속 확인
 
+***운영 배포***  
+Supabase(DB, 파일), Render(backend, indexing), Vercel(frontend)로 운영에 올리는 방법, 입력할 환경변수, 플랜과 메모리 근거, 배포 후 확인 명령, 롤백은 [docs/deploy.md](docs/deploy.md)에 있습니다.
+
 <br/>
 
 ***Docker Compose를 활용한 전체 Image Build 및 Container 삭제***  
@@ -106,7 +109,7 @@ docker compose down {service-name} -v --rmi all
 
 인증 관련 환경변수(`DOCS_AUTH_*`)는 아래 환경변수 표에 있습니다.
 
-개발용 계정은 `admin`, `editor`, `viewer`, `planner`, `backend`, `frontend`, `data`, `reviewer`이고 비밀번호는 `<이름>123`입니다. 운영에서는 켜지 마세요.
+개발용 계정은 `admin`, `editor`, `viewer`, `planner`, `backend`, `frontend`, `data`, `reviewer`, `uploader`이고 비밀번호는 `<이름>123`입니다. 운영에서는 켜지 마세요.
 
 - 로컬 개발: `./gradlew bootRun --args='--spring.profiles.active=dev'` (임시 서명 키 + 개발용 계정)
 - 운영(docker compose): `.env`에 `DOCS_AUTH_TOKEN_SECRET`, `DOCS_INTERNAL_TOKEN`, 처음 한 번 `DOCS_AUTH_ADMIN_USERNAME`/`DOCS_AUTH_ADMIN_PASSWORD`를 설정합니다. 서명 키와 내부 토큰은 저장소에 커밋하지 마세요.
@@ -162,6 +165,7 @@ docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .
 | `SPRING_PROFILES_ACTIVE` | backend | 없음 (compose `satc`) | | `dev`면 임시 서명 키·개발용 계정·localhost CORS를 씁니다. 운영에서 쓰지 마세요 |
 | `SPRING_DATASOURCE_URL` | backend | `jdbc:postgresql://127.0.0.1:5432/docs` (compose는 `postgres` 컨테이너) | O | PostgreSQL 주소 |
 | `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | backend | `postgres` / `postgres` (compose는 `POSTGRES_USER`/`POSTGRES_PASSWORD`) | O | DB 계정 |
+| `DOCS_DB_SCHEMA` | backend | 없음 | | 테이블을 둘 스키마. 비우면 `search_path` 기본값(`public`), 정하면 기동 시 스키마를 만들고 그 안에 둡니다. Supabase는 `public`을 REST로 노출하므로 운영은 `docs_portal`([docs/deploy.md](docs/deploy.md)) |
 | `CORS_ALLOWED_ORIGINS` | backend | 없음 (`dev` 프로필 `http://localhost:3000,http://127.0.0.1:3000`, compose `http://localhost:3000`) | O | 브라우저 요청을 허용할 프론트엔드 Origin, 쉼표로 구분. 비어 있으면 기동하지 않습니다 |
 | `STORAGE_ENDPOINT` | backend, indexing | 없음 → `MINIO_*` 주소 (compose는 `http://minio:9000`) | O | 파일 저장소(S3 호환) 주소. Supabase는 `https://<ref>.storage.supabase.co/storage/v1/s3` |
 | `STORAGE_REGION` / `STORAGE_BUCKET` | backend, indexing | `us-east-1` / `MINIO_BUCKET_NAME`(`docs`) | | 서명 리전과 문서 버킷 |
@@ -195,6 +199,7 @@ docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .
 | `SEARCH_PG_TEXT_INDEX` | indexing | `pgroonga` | | PostgreSQL 한국어 검색 방식. `pgroonga` 또는 `trgm`. 확장이 없으면 기동하지 않으며 자동으로 바꾸지 않습니다. PGroonga 이미지는 `docker/postgres-pgroonga` |
 | `SEARCH_PG_HOST` / `SEARCH_PG_PORT` / `SEARCH_PG_DB` / `SEARCH_PG_USER` / `SEARCH_PG_PASSWORD` | indexing | `localhost` / `5432` / `docs` / `postgres` / `postgres` (compose는 `postgres` 컨테이너와 `POSTGRES_*`) | PostgreSQL 사용 시 | 검색 테이블을 둘 DB. `SEARCH_BACKEND=postgres`이거나 `SEARCH_DUAL_WRITE=true`일 때만 접속합니다 |
 | `SEARCH_PG_TRGM_THRESHOLD` | indexing | `0.2` | | `trgm` 방식의 `pg_trgm.word_similarity_threshold` |
+| `SEARCH_PG_SCHEMA` | indexing | 없음 | | 검색 테이블을 둘 스키마. 정하면 기동 시 만들고 커넥션 `search_path` 맨 앞에 둡니다. `DOCS_DB_SCHEMA`와 같은 값을 씁니다 |
 
 indexing 서비스의 나머지 설정(`ELASTICSEARCH_HOST`, `CHUNK_SIZE` 등)은 `indexing/app/config.py`와 `docker-compose.yml`을 보세요.  
 저장소 설정의 기본값 규칙, Supabase Storage로 바꾸는 법, 기존 문서 키를 옮기는 이관 스크립트는 [docs/storage.md](docs/storage.md)에 있습니다.

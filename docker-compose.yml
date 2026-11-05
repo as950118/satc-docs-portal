@@ -65,6 +65,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-docs}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - DOCS_DB_SCHEMA=${DOCS_DB_SCHEMA:-}
       # 파일 저장소(S3 호환). 비우면 minio 컨테이너를 쓴다. Supabase Storage 는 docs/storage.md
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-http://minio:9000}
       - STORAGE_REGION=${STORAGE_REGION:-us-east-1}
@@ -150,6 +151,7 @@ services:
       - SEARCH_PG_DB=${POSTGRES_DB:-docs}
       - SEARCH_PG_USER=${POSTGRES_USER:-postgres}
       - SEARCH_PG_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SEARCH_PG_SCHEMA=${SEARCH_PG_SCHEMA:-}
     ports:
       - "${INDEXING_PORT:-8000}:8000"
     depends_on:

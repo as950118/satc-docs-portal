@@ -43,6 +43,18 @@ class ExternalServiceImplNotifyTest {
     }
 
     @Test
+    void hostWithoutSchemeIsCalledOverHttp() {
+        ReflectionTestUtils.setField(service, "apiHost", "satc-docs-indexing-a1b2");
+        indexing.expect(requestTo("http://satc-docs-indexing-a1b2:8000/api/v1/process-document"))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        service.notifyDocumentUploaded("docs", "documents/a1/a1.md", "a1");
+
+        indexing.verify();
+    }
+
+    @Test
     void reindexDeletesByFileNameThenProcessesWithTheTitle() {
         indexing.expect(requestTo("http://indexing:8000/api/v1/documents"))
             .andExpect(method(HttpMethod.DELETE))

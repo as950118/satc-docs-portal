@@ -57,6 +57,12 @@ public class ExternalServiceImpl implements ExternalService {
         this.objectMapper = objectMapper;
         this.docsRepository = docsRepository;
     }
+
+    // Render 의 fromService host 처럼 스킴 없는 호스트 이름도 받는다
+    private String indexingUrl(String path) {
+        String base = apiHost.contains("://") ? apiHost : "http://" + apiHost;
+        return base + ":" + apiPort + path;
+    }
     
     @Override
     @Async("fileUploadExecutor")
@@ -74,7 +80,7 @@ public class ExternalServiceImpl implements ExternalService {
             
             HttpEntity<ExternalApiRequest> httpEntity = new HttpEntity<>(request, headers);
             
-            String url = String.format("%s:%d/api/v1/process-document", apiHost, apiPort);
+            String url = indexingUrl("/api/v1/process-document");
             
             logger.info("[EXTERNAL API] Calling external API: {} with request: {}", url, request);
             
@@ -108,7 +114,7 @@ public class ExternalServiceImpl implements ExternalService {
             }
             
             // 외부 검색 API 호출
-            String baseUrl = String.format("%s:%d/api/v1/search-documents", apiHost, apiPort);
+            String baseUrl = indexingUrl("/api/v1/search-documents");
             String url = UriComponentsBuilder
                     .fromUriString(baseUrl)
                     .queryParam("q", query.trim())
@@ -542,7 +548,7 @@ public class ExternalServiceImpl implements ExternalService {
     @SuppressWarnings("unchecked")
     public Map<String, Object> getIndexedDocument(String documentId) {
         try {
-            String url = UriComponentsBuilder.fromUriString(String.format("%s:%d/api/v1/documents", apiHost, apiPort))
+            String url = UriComponentsBuilder.fromUriString(indexingUrl("/api/v1/documents"))
                     .pathSegment(documentId).build().encode().toUriString();
             return restTemplate.getForObject(url, Map.class);
         } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
@@ -576,7 +582,7 @@ public class ExternalServiceImpl implements ExternalService {
             
             HttpEntity<Map<String, List<String>>> httpEntity = new HttpEntity<>(requestBody, headers);
             
-            String url = String.format("%s:%d/api/v1/documents", apiHost, apiPort);
+            String url = indexingUrl("/api/v1/documents");
             logger.info("[EXTERNAL API] Calling delete notification API: {} with {} files: {}", 
                 url, deletedFileNames.size(), deletedFileNames);
             

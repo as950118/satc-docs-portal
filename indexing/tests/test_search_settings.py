@@ -50,3 +50,15 @@ def test_service_refuses_to_start_with_invalid_backend():
                           capture_output=True, text=True, timeout=60)
     assert proc.returncode != 0
     assert "SEARCH_BACKEND 허용 값: es, postgres" in proc.stderr
+
+
+@pytest.mark.parametrize("raw, expected", [("", ""), ("  ", ""), (" docs_portal ", "docs_portal"), ("satc_docs2", "satc_docs2")])
+def test_search_pg_schema_accepts_a_lowercase_identifier_or_nothing(monkeypatch, raw, expected):
+    assert load(monkeypatch, SEARCH_PG_SCHEMA=raw).search_pg_schema == expected
+
+
+@pytest.mark.parametrize("raw", ["Docs", "docs-portal", "docs;drop", "1docs", "public.x"])
+def test_search_pg_schema_rejects_other_names(monkeypatch, raw):
+    with pytest.raises(ValidationError) as err:
+        load(monkeypatch, SEARCH_PG_SCHEMA=raw)
+    assert "SEARCH_PG_SCHEMA" in str(err.value)
