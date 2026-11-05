@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 
+import com.docsportal.docs.common.Roles;
 import com.docsportal.docs.format.request.DocumentSyncRequest;
 import com.docsportal.docs.format.response.StandardDocumentResponse;
 import com.docsportal.docs.format.response.UserInfoResponse;
@@ -90,7 +91,7 @@ class StandardDocumentControllerTest {
             "d1", "created", DocumentStatus.INDEXING, 42L, "uploader", 42L, "uploader", Instant.EPOCH));
         assertThat(controller.register("Bearer u", file, "standard:k", "r", "p", "c", "h", null).getStatusCode())
             .isEqualTo(HttpStatus.OK);
-        assertThat(StandardDocumentController.WRITER_ROLES).contains("UPLOADER", "ADMIN", "BACKEND", "REVIEWER");
+        assertThat(Roles.DOCUMENT_WRITERS).contains("UPLOADER", "ADMIN", "BACKEND", "REVIEWER");
     }
 
     @Test

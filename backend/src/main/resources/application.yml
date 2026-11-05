@@ -51,6 +51,13 @@ external:
     enabled: true
     
 docs:
+  api:
+    # 문서 API(/api/v1/docs/**) 인증. 읽기는 로그인 사용자, 쓰기는 Roles.DOCUMENT_WRITERS, 상태 콜백은 내부 토큰. false 면 누구나 부를 수 있다
+    auth-required: ${DOCS_API_AUTH_REQUIRED:true}
+  internal:
+    # indexing → backend 상태 콜백(POST /api/v1/docs/status)의 X-Internal-Token. indexing 에도 같은 값을 준다.
+    # 인증을 켰는데 비어 있으면 dev 프로필 외에는 기동 실패
+    token: ${DOCS_INTERNAL_TOKEN:}
   db:
     # 테이블을 둘 PostgreSQL 스키마. 비우면 search_path 기본값(public), 정하면 기동 시 스키마를 만들고 그 안에 둔다 (DbSchemaConfig)
     schema: ${DOCS_DB_SCHEMA:}

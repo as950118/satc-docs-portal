@@ -61,7 +61,7 @@ sequenceDiagram
   participant ES as Elasticsearch
   participant B as 사용자 B (브라우저)
 
-  U->>BE: POST /docs (파일, X-Client-Id)
+  U->>BE: POST /docs (파일, Authorization, X-Client-Id)
   BE->>BE: DB에 UPLOADING 저장
   BE->>M: 파일 업로드
   BE->>BE: 상태 INDEXING
@@ -72,16 +72,18 @@ sequenceDiagram
   I->>ES: 청크 색인 (document_chunks)
   I->>ES: 전체 문서 색인 (full_documents)
   alt 색인 성공 또는 청크 0개
-    I->>BE: POST /docs/status COMPLETE
+    I->>BE: POST /docs/status COMPLETE (X-Internal-Token)
   else ES 청크 색인 실패 또는 예외
-    I->>BE: POST /docs/status FAILED
+    I->>BE: POST /docs/status FAILED (X-Internal-Token)
   end
   BE-->>U: SSE document.status
   BE-->>B: SSE document.status
 ```
 
 - A가 올린 `document.created`는 `originId`가 A 자신이라 A 화면에는 토스트가 뜨지 않고 트리만 갱신됩니다. B 화면에는 토스트가 뜹니다.
-- 상태 콜백은 서버 간 호출이라 `X-Client-Id`가 없어 `originId`가 비어 있고, 모든 화면이 받습니다.
+- 문서 API는 로그인 사용자만 부를 수 있고, 업로드·폴더·이동·삭제는 쓰기 역할이 필요합니다. 표는 README의 "문서 API 권한"에 있습니다.
+- 상태 콜백은 서버 간 호출이라 사용자 토큰 대신 `X-Internal-Token`(`DOCS_INTERNAL_TOKEN`)으로 인증합니다. 두 서비스의 값이 다르면 콜백이 401로 거부되어 문서가 `INDEXING`에 남습니다.
+- 상태 콜백에는 `X-Client-Id`가 없어 `originId`가 비어 있고, 모든 화면이 받습니다.
 - 인덱싱 서비스는 상태 갱신 응답의 본문 `status`도 확인합니다(백엔드가 HTTP 200에 본문 `status: 500`으로 실패를 알리는 경우가 있음).
 
 ## 3. 검색

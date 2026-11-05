@@ -112,7 +112,23 @@ docker compose down {service-name} -v --rmi all
 개발용 계정은 `admin`, `editor`, `viewer`, `planner`, `backend`, `frontend`, `data`, `reviewer`, `uploader`이고 비밀번호는 `<이름>123`입니다. 운영에서는 켜지 마세요.
 
 - 로컬 개발: `./gradlew bootRun --args='--spring.profiles.active=dev'` (임시 서명 키 + 개발용 계정)
-- 운영(docker compose): `.env`에 `DOCS_AUTH_TOKEN_SECRET`, 처음 한 번 `DOCS_AUTH_ADMIN_USERNAME`/`DOCS_AUTH_ADMIN_PASSWORD`를 설정합니다. 서명 키는 저장소에 커밋하지 마세요.
+- 운영(docker compose): `.env`에 `DOCS_AUTH_TOKEN_SECRET`, `DOCS_INTERNAL_TOKEN`, 처음 한 번 `DOCS_AUTH_ADMIN_USERNAME`/`DOCS_AUTH_ADMIN_PASSWORD`를 설정합니다. 서명 키와 내부 토큰은 저장소에 커밋하지 마세요.
+
+### 문서 API 권한
+`/api/v1/docs/**`의 모든 핸들러는 `@DocsAccess`로 부를 수 있는 호출자를 선언하고, 백엔드의 `DocsAccessInterceptor`가 요청마다 확인합니다. 토큰 검증은 스펙·표준문서 API와 같은 `AuthService.getCurrentUser`이고, 쓰기 역할은 표준문서 등록과 같은 `Roles.DOCUMENT_WRITERS`입니다. 토큰이 없거나 무효·만료면 401, 역할이 모자라면 403입니다.
+
+| 호출자 | 엔드포인트 | 받는 자격 증명 |
+|---|---|---|
+| 로그인 사용자 누구나 | `GET /docs/tree`, `/tree/full`, `/tree/{parentId}`, `/root`, `/{parentId}/children`, `/statistics`, `/folders`, `/{documentId}/content`, `/indexed/{documentId}`, `/search`, `/standard/history` | `Authorization: Bearer <포털 토큰>` |
+| 쓰기 역할 사용자 | `POST /docs`, `/docs/multiple`, `/docs/folder`, `/docs/move`, `DELETE /docs/{documentId}`, `PUT /docs/standard` | Bearer 토큰 + `ADMIN`, `PLANNER`, `BACKEND`, `FRONTEND`, `DATA`, `REVIEWER`, `UPLOADER` 중 하나(`Roles.DOCUMENT_WRITERS`). `USER`만 있는 계정은 조회 전용입니다 |
+| indexing 서비스 | `POST /docs/status` | `X-Internal-Token: <DOCS_INTERNAL_TOKEN>`. 사용자 토큰으로는 부를 수 없습니다 |
+| CI 동기화 | `PUT /docs/sync` | `X-Docs-Sync-Token: <DOCS_SYNC_TOKEN>`. 컨트롤러가 직접 확인하고, 아래 스위치와 관계없습니다 |
+
+`/hello`, 로그인·OAuth 엔드포인트, SSE(`GET /api/v1/events`)는 토큰 없이 열려 있습니다. SSE 이벤트에는 본문이 없지만 문서·스펙 제목은 있습니다.  
+화면은 쓰기 역할과 별개로 `ADMIN`에게만 업로드·폴더·이동·삭제 버튼을 보여 줍니다.
+
+`DOCS_API_AUTH_REQUIRED=false`로 두면 인터셉터를 등록하지 않아 문서 API를 누구나 읽고 쓰고 지울 수 있습니다(이 기능 이전 동작). 동기화 토큰과 표준문서 API의 Bearer 확인은 그대로 남습니다.  
+새 문서 매핑을 추가하면 `@DocsAccess`를 붙이고 `DocsEndpoints` 표에 넣으세요. 빠뜨리면 `DocsAccessCoverageTest`가 실패합니다.
 
 ### MCP 클라이언트 로그인 (OAuth)
 백엔드는 MCP 클라이언트(Claude Code 등)를 위한 최소 OAuth 2.1 인가 서버이기도 합니다. 클라이언트가 브라우저를 열면 사용자는 평소 포털 계정으로 로그인하고 동의 화면(`/oauth/consent`)에서 허용합니다. 클라이언트는 포털 JWT를 받고, 유효 시간은 `DOCS_OAUTH_TOKEN_TTL`(기본 7일)입니다. 리프레시 토큰은 없어서 만료되면 브라우저 로그인을 다시 합니다.
@@ -162,6 +178,8 @@ docker compose는 저장소 루트의 `.env`를 읽습니다. `cp .env.example .
 | `DOCS_MAX_UPLOAD_SIZE` / `DOCS_MAX_REQUEST_SIZE` | backend | `50MB` / `100MB` | | 업로드 파일 하나와 요청 전체의 상한. 넘으면 413 |
 | `EXTERNAL_API_HOST` / `EXTERNAL_API_PORT` | backend | `http://127.0.0.1` / `8000` (compose는 `indexing` 컨테이너) | O | indexing 서비스 주소. 업로드 알림을 보냅니다 |
 | `EXTERNAL_API_ENABLED` | backend | `true` | | `false`면 indexing 알림을 보내지 않습니다 |
+| `DOCS_API_AUTH_REQUIRED` | backend | `true` | | 문서 API(`/api/v1/docs/**`) 인증. `false`면 누구나 문서를 읽고 쓰고 지울 수 있습니다. 권한 표는 위 "문서 API 권한" |
+| `DOCS_INTERNAL_TOKEN` | backend, indexing | 없음 | O | indexing이 문서 상태를 알릴 때(`POST /api/v1/docs/status`) 쓰는 내부 토큰. 두 서비스에 같은 값을 넣습니다. 인증을 켰는데 backend에서 비어 있으면 기동하지 않습니다(`dev` 프로필만 예외, 그때 콜백은 401). indexing에서 비어 있으면 콜백이 거부되어 문서가 `INDEXING`에 남습니다. 예: `openssl rand -base64 32` |
 | `DOCS_SYNC_TOKEN` | backend | 없음 | | 코드→문서 동기화(`PUT /api/v1/docs/sync`) 토큰. 비어 있으면 동기화 API를 끕니다 |
 | `DOCS_AUTH_TOKEN_SECRET` | backend | 없음 | O | 로그인 토큰 서명 키, 32바이트 이상. 비어 있으면 기동하지 않습니다(`dev` 프로필만 예외로 기동마다 임시 키 생성). 예: `openssl rand -base64 48` |
 | `DOCS_AUTH_TOKEN_TTL` | backend | `12h` | | 토큰 유효 시간 |

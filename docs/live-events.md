@@ -15,11 +15,11 @@
 | `document.moved` | 문서 이동 | 없음 |
 | `spec.changed` | PRD·기술문서 생성, 수정, 상태 전이 | 로그인 사용자명(시스템이 일으킨 전이는 `system`) |
 
-업로드 문서 API(`/docs/**`)에는 인증이 없어서 문서 이벤트의 `actor`는 비어 있습니다. 스펙 이벤트만 사용자명이 있습니다.
+문서 API는 로그인이 필요하지만 업로드한 사용자를 이벤트에 싣지 않아서 문서 이벤트의 `actor`는 비어 있습니다. 스펙 이벤트만 사용자명이 있습니다.
 
 ## API
 
-`GET /api/v1/events` (`text/event-stream`, 인증 없음)
+`GET /api/v1/events` (`text/event-stream`, 인증 없음). `EventSource`는 `Authorization` 헤더를 보낼 수 없어서 문서 API와 달리 토큰 없이 열려 있습니다. 이벤트에 본문은 없지만 제목은 있습니다.
 
 ```
 curl -N http://localhost:8080/api/v1/events
@@ -46,7 +46,7 @@ data:{"type":"document.created","id":"…","title":"문서 제목","parentId":nu
 변경 요청(업로드, 삭제 등)에 선택 헤더 `X-Client-Id: <탭마다 다른 임의 값>`을 붙이면, 그 요청이 만든 이벤트의 `originId`에 같은 값이 실립니다. 화면은 `originId`가 자기 값이면 토스트를 띄우지 않고 목록만 갱신합니다.
 
 ```
-curl -X POST -H 'X-Client-Id: my-tab' -F "file=@a.md" http://localhost:8080/api/v1/docs
+curl -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Client-Id: my-tab' -F "file=@a.md" http://localhost:8080/api/v1/docs
 ```
 
 - 값은 128자까지만 쓰이고 비어 있으면 `originId`는 null입니다. 위조할 수 있으므로 보안 용도가 아니라 알림 생략용입니다.

@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import { apiBaseUrl } from '@/config'
+import { authUtils } from './auth'
 import { withClientId } from './clientId'
 
 // API 클라이언트 설정
@@ -15,7 +16,10 @@ const api = axios.create({
 // 요청 인터셉터
 api.interceptors.request.use(
   (config) => {
-    // 요청 전 처리 (예: 토큰 추가)
+    const token = authUtils.getSessionId()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     console.log('API 요청:', config.method?.toUpperCase(), config.url)
     return withClientId(config)
   },
@@ -32,6 +36,12 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('API 에러:', error.response?.status, error.config?.url, error.message)
+    if (error.response?.status === 401) {
+      authUtils.logout()
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
     return Promise.reject(error)
   }
 )

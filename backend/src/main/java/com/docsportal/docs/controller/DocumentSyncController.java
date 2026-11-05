@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.docsportal.docs.common.DocsAccess;
+import com.docsportal.docs.common.DocsAccess.Level;
 import com.docsportal.docs.common.RestResponse;
 import com.docsportal.docs.format.request.DocumentSyncRequest;
 import com.docsportal.docs.format.response.DocumentSyncResponse;
@@ -46,6 +48,7 @@ public class DocumentSyncController {
         this.syncToken = syncToken.getBytes(StandardCharsets.UTF_8);
     }
 
+    @DocsAccess(Level.SYNC)
     @PutMapping(value = API_DOCS_SYNC, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RestResponse<DocumentSyncResponse>> sync(
             @RequestHeader(value = TOKEN_HEADER, required = false) String token,

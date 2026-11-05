@@ -32,6 +32,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.docsportal.docs.common.DocsAccess;
+import com.docsportal.docs.common.DocsAccess.Level;
 import com.docsportal.docs.common.RestResponse;
 import com.docsportal.docs.format.request.DocumentMoveRequest;
 import com.docsportal.docs.format.request.DocumentStatusUpdateRequest;
@@ -62,6 +64,7 @@ public class DocumentController {
     }
 
     // 문서 업로드 (비동기)
+    @DocsAccess(Level.WRITE)
     @PostMapping(value = API_DOCS, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public RestResponse<Boolean> uploadDocument(
             @RequestParam("file") MultipartFile file,
@@ -95,6 +98,7 @@ public class DocumentController {
     }
 
     // 최상위 문서 트리 조회 (children 없이)
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_TREE)
     public RestResponse<DocumentTreeResponse> getDocumentTree() {
         try {
@@ -111,6 +115,7 @@ public class DocumentController {
     }
 
     // 전체 계층 구조 포함 트리 조회
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_TREE_FULL)
     public RestResponse<DocumentTreeResponse> getFullDocumentTree() {
         try {
@@ -127,6 +132,7 @@ public class DocumentController {
     }
 
     // 특정 부모의 자식 트리 조회
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_TREE_PARENT)
     public RestResponse<DocumentTreeResponse> getDocumentTreeByParent(@PathVariable("parentId") String parentId) {
         try {
@@ -143,6 +149,7 @@ public class DocumentController {
     }
 
     // 루트 문서들 조회
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_ROOT)
     public RestResponse<List<DocumentResponse>> getRootDocuments() {
         try {
@@ -159,6 +166,7 @@ public class DocumentController {
     }
 
     // 특정 부모의 직접적인 자식들 조회
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_CHILDREN)
     public RestResponse<List<DocumentResponse>> getChildDocuments(@PathVariable String parentId) {
         try {
@@ -175,6 +183,7 @@ public class DocumentController {
     }
 
     // 새 폴더 생성
+    @DocsAccess(Level.WRITE)
     @PostMapping(value = API_DOCS_FOLDER)
     public RestResponse<DocumentCreateResponse> createFolder(
             @RequestParam("title") String title,
@@ -193,6 +202,7 @@ public class DocumentController {
     }
 
     // 다중 문서 생성
+    @DocsAccess(Level.WRITE)
     @PostMapping(value = API_DOCS_MULTIPLE, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public RestResponse<List<DocumentCreateResponse>> createMultipleDocuments(
             @RequestParam("files") MultipartFile[] files,
@@ -220,6 +230,7 @@ public class DocumentController {
     }
 
     // 문서/폴더 이동
+    @DocsAccess(Level.WRITE)
     @PostMapping(value = API_DOCS_MOVE)
     public RestResponse<Boolean> moveDocuments(@RequestBody DocumentMoveRequest request) {
         try {
@@ -252,6 +263,7 @@ public class DocumentController {
     }
 
     // 문서 통계 조회
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_STATISTICS)
     public RestResponse<DocumentStatisticsResponse> getDocumentStatistics() {
         try {
@@ -268,6 +280,7 @@ public class DocumentController {
     }
 
     // 폴더 목록 조회
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_FOLDERS)
     public RestResponse<List<FolderListResponse>> getAllFolders() {
         try {
@@ -284,6 +297,7 @@ public class DocumentController {
     }
 
     // 문서 삭제
+    @DocsAccess(Level.WRITE)
     @DeleteMapping(value = API_DOCS_ID)
     public RestResponse<Boolean> deleteDocument(@PathVariable("documentId") String documentId) {
         try {
@@ -316,6 +330,7 @@ public class DocumentController {
     }
 
     // 문서 상태 업데이트
+    @DocsAccess(Level.INTERNAL)
     @PostMapping(value = API_DOCS_STATUS)
     public RestResponse<Boolean> updateDocumentStatus(@RequestBody DocumentStatusUpdateRequest request) {
         try {
@@ -357,6 +372,7 @@ public class DocumentController {
     }
 
     // 업로드 문서 본문 조회 (MinIO)
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_CONTENT)
     public RestResponse<String> documentContent(@PathVariable("documentId") String documentId) {
         String content = documentService.getDocumentContent(documentId);
@@ -368,6 +384,7 @@ public class DocumentController {
     }
 
     // 색인 전용 문서(MinIO 파일 없음) 본문 조회
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_INDEXED)
     public RestResponse<java.util.Map<String, Object>> indexedDocument(@PathVariable("documentId") String documentId) {
         java.util.Map<String, Object> doc = externalService.getIndexedDocument(documentId);
@@ -379,6 +396,7 @@ public class DocumentController {
     }
 
     // 문서 검색
+    @DocsAccess(Level.READ)
     @GetMapping(value = API_DOCS_SEARCH)
     public RestResponse<SearchResultResponse> searchDocuments(@RequestParam("q") String query) {
         try {

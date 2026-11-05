@@ -13,8 +13,8 @@ import com.docsportal.docs.live.SseHub;
 import com.docsportal.docs.live.TooManyConnectionsException;
 
 /**
- * 문서·스펙 변경 실시간 알림(SSE). EventSource 는 Authorization 헤더를 못 보내므로 /docs/** 처럼 인증이 없고,
- * 이벤트에는 본문이 없다.
+ * 문서·스펙 변경 실시간 알림(SSE). EventSource 는 Authorization 헤더를 못 보내므로 인증이 없다.
+ * 이벤트에는 본문이 없지만 문서·스펙 제목은 있다.
  */
 @RestController
 public class LiveEventsController {
